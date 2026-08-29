@@ -1,6 +1,6 @@
 # Job Board
 
-A production-oriented TypeScript MERN modular monolith for a niche job board. Phase 4 provides the secure employer Job-management and public Job-detail foundation; applications and public Job search remain deliberately deferred.
+A production-oriented TypeScript MERN modular monolith for a niche job board. Phase 6 adds private, Applicant-owned resume storage and lifecycle controls; Job Applications remain deliberately deferred.
 
 ## Architecture
 
@@ -30,7 +30,7 @@ npm install
 Copy-Item .env.example .env
 ```
 
-Set `MONGODB_URI` in `.env` to a local MongoDB instance. `API_HOST`, `API_PORT`, `WEB_ORIGIN`, `LOG_LEVEL`, and `REQUEST_BODY_LIMIT` are validated at startup. The example is safe for local development and contains no secret.
+Set `MONGODB_URI` in `.env` to a local MongoDB instance. `API_HOST`, `API_PORT`, `WEB_ORIGIN`, `LOG_LEVEL`, and `REQUEST_BODY_LIMIT` are validated at startup. Production also requires `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` for private resume storage. The example is safe and contains no real secret.
 
 ## Local development
 
@@ -111,6 +111,19 @@ Job slugs are generated once by the server and stay stable when a title changes.
 
 Deep offset pagination uses `skip`/`limit` for the initial product. Cursor pagination and MongoDB Atlas Search are future scale-up options, not current infrastructure.
 
+## Private resume API
+
+Applicants may maintain exactly one private PDF resume after creating their Applicant profile:
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `PUT` | `/api/v1/applicant/resume` | Upload or replace one PDF (maximum 5 MiB, multipart field `resume`) |
+| `GET` | `/api/v1/applicant/resume` | Retrieve safe metadata only |
+| `POST` | `/api/v1/applicant/resume/access` | Generate a five-minute owner-only private download URL |
+| `DELETE` | `/api/v1/applicant/resume` | Remove the active resume metadata and request provider deletion |
+
+Files are signature-checked PDFs, stored as Cloudinary `raw` private assets, and never stored in MongoDB. MongoDB contains only non-secret metadata and an opaque provider asset ID; it never contains file bytes, permanent/public URLs, signed URLs, or provider credentials. The access route sends `Cache-Control: private, no-store`. In development without Cloudinary configuration the API remains usable but resume operations return a safe storage-not-configured response; test coverage injects an in-memory fake provider.
+
 ## Repository structure
 
 ```text
@@ -121,8 +134,8 @@ docker/           Application Dockerfiles
 .github/workflows/ CI quality gate
 ```
 
-## Phase 4 status and intentionally deferred work
+## Phase 6 status and intentionally deferred work
 
-Implemented: workspace foundation, API lifecycle separation, strict configuration, MongoDB lifecycle handling, standardized health/error responses, request validation and query-safety primitives, security middleware, request correlation, bounded shutdown/timeouts, Docker health checks, isolated test-database guardrails, password authentication, rotating refresh sessions, RBAC primitives, private profiles/companies, and core employer Job lifecycle management.
+Implemented: workspace foundation, API lifecycle separation, strict configuration, MongoDB lifecycle handling, standardized health/error responses, request validation and query-safety primitives, security middleware, request correlation, bounded shutdown/timeouts, Docker health checks, isolated test-database guardrails, password authentication, rotating refresh sessions, RBAC primitives, private profiles/companies, Job discovery, and private resume upload/replacement/access/removal behind a focused Cloudinary storage boundary.
 
-Deferred: applications, saved jobs, resumes and storage providers, email, dashboards, company teams, caching, queues, analytics, payments, advanced Atlas Search capabilities, and all other product features. See [the architecture document](docs/architecture/architecture.md) for operational conventions and scale-up seams.
+Deferred: Job Applications, saved jobs, resume parsing, email, dashboards, company teams, caching, queues, analytics, payments, advanced Atlas Search capabilities, and all other product features. See [the architecture document](docs/architecture/architecture.md) for operational conventions and scale-up seams.

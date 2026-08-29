@@ -12,15 +12,18 @@ import { createHealthRouter } from './routes/health.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createProfileRouter } from './routes/profiles.js';
 import { createJobRouter } from './routes/jobs.js';
+import { createResumeRouter } from './routes/resumes.js';
+import type { ResumeStorageProvider } from './resume/storage/resume-storage-provider.js';
 
 interface AppOptions {
   environment: Environment;
   logger: Logger;
   isDatabaseReady: () => boolean;
+  resumeStorageProvider?: ResumeStorageProvider;
   configureRoutes?: (app: Express) => void;
 }
 
-export function createApp({ environment, logger, isDatabaseReady, configureRoutes }: AppOptions) {
+export function createApp({ environment, logger, isDatabaseReady, resumeStorageProvider, configureRoutes }: AppOptions) {
   const app = express();
   app.disable('x-powered-by');
   app.use(requestId);
@@ -33,6 +36,7 @@ export function createApp({ environment, logger, isDatabaseReady, configureRoute
   app.use('/api/v1/health', createHealthRouter(isDatabaseReady));
   app.use('/api/v1/auth', createAuthRouter(environment));
   app.use('/api/v1', createProfileRouter(environment));
+  app.use('/api/v1', createResumeRouter(environment, resumeStorageProvider));
   app.use('/api/v1', createJobRouter(environment));
   configureRoutes?.(app);
   app.use(notFoundHandler);

@@ -37,6 +37,12 @@ export const apiErrorCodeSchema = z.enum([
   'JOB_NOT_FOUND',
   'JOB_INVALID_TRANSITION',
   'JOB_NOT_PUBLISHABLE',
+  'PROFILE_REQUIRED',
+  'RESUME_NOT_FOUND',
+  'RESUME_INVALID_FILE',
+  'RESUME_UNSUPPORTED_TYPE',
+  'RESUME_TOO_LARGE',
+  'RESUME_STORAGE_ERROR',
 ]);
 
 export const apiErrorResponseSchema = z.object({
@@ -73,8 +79,12 @@ export const locationSchema = z.object({ city: z.string(), state: z.string().opt
 export const applicantProfileSchema = z.object({
   id: z.string(), fullName: z.string(), headline: z.string().optional(), bio: z.string().optional(),
   location: locationSchema, skills: z.array(z.string()), experience: z.array(z.unknown()), education: z.array(z.unknown()),
-  createdAt: z.string(), updatedAt: z.string(),
+  hasResume: z.boolean(), createdAt: z.string(), updatedAt: z.string(),
 });
+export const resumeMetadataSchema = z.object({
+  originalFilename: z.string(), mimeType: z.literal('application/pdf'), sizeBytes: z.number().int().positive(), uploadedAt: z.string(),
+});
+export type ResumeMetadata = z.infer<typeof resumeMetadataSchema>;
 export const employerProfileSchema = z.object({ id: z.string(), fullName: z.string(), jobTitle: z.string().optional(), phone: z.string().optional(), createdAt: z.string(), updatedAt: z.string() });
 export const companyPublicSchema = z.object({
   id: z.string(), name: z.string(), slug: z.string(), description: z.string().optional(), website: z.string().optional(),

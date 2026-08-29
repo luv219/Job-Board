@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+const optionalValue = z.preprocess(
+  (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
+  z.string().trim().min(1).max(512).optional(),
+);
+
 const environmentSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_HOST: z.string().trim().min(1).max(253).default('0.0.0.0'),
@@ -13,9 +18,19 @@ const environmentSchema = z.object({
   ACCESS_TOKEN_AUDIENCE: z.string().trim().min(1).default('job-board-web'),
   ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().min(300).max(900).default(600),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(30).default(7),
+  CLOUDINARY_CLOUD_NAME: optionalValue,
+  CLOUDINARY_API_KEY: optionalValue,
+  CLOUDINARY_API_SECRET: optionalValue,
 }).superRefine((environment, context) => {
   if (/replace|change-me|placeholder|example/i.test(environment.ACCESS_TOKEN_SECRET)) {
     context.addIssue({ code: 'custom', path: ['ACCESS_TOKEN_SECRET'], message: 'must be replaced with a strong secret' });
+  }
+  if (environment.NODE_ENV === 'production') {
+    for (const field of ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'] as const) {
+      if (!environment[field] || /replace|change-me|placeholder|example/i.test(environment[field])) {
+        context.addIssue({ code: 'custom', path: [field], message: 'is required for private resume storage in production' });
+      }
+    }
   }
 });
 
