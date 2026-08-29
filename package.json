@@ -1,0 +1,27 @@
+{
+  "name": "job-board",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.0.0", "npm": ">=11.0.0" },
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "concurrently -n web,api -c cyan,green \"npm run dev -w @job-board/web\" \"npm run dev -w @job-board/api\"",
+    "dev:web": "npm run dev -w @job-board/web",
+    "dev:api": "npm run dev -w @job-board/api",
+    "build": "npm run build -w @job-board/contracts && npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run build -w @job-board/contracts && npm run typecheck --workspaces --if-present",
+    "test": "npm run build -w @job-board/contracts && npm run test --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "concurrently": "9.2.4",
+    "eslint": "9.39.5",
+    "eslint-plugin-react-hooks": "7.0.1",
+    "eslint-plugin-react-refresh": "0.4.24",
+    "globals": "17.4.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.57.0"
+  }
+}
