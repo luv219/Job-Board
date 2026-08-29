@@ -30,6 +30,18 @@ Configuration is validated once and does not expose values in validation errors.
 
 Docker Compose provides web, API, and an internal-only MongoDB with a persistent development volume and health checks. Production runtime stages use non-root users and omit development dependencies from the API runtime. No secrets or `.env` files are baked into images.
 
+## Authentication foundation
+
+`User` is an account-identity model only, with normalized unique email, Argon2id password hash, role (`APPLICANT` or `EMPLOYER`), `ACTIVE`/`DISABLED` status, and timestamps. No profile data is stored there. Passwords must be 12–128 characters and are never trimmed, normalized, logged, or serialized. Argon2id uses 19 MiB memory, time cost 2, and parallelism 1: a practical baseline for interactive authentication that can be revisited with production capacity data.
+
+Access tokens are HS256 JWTs with only subject and role claims, explicit issuer/audience validation, and a 10-minute lifetime. Protected routes load the current User record, so disabled accounts are rejected even before an existing access token expires. The stored role, not a claim or client value, remains authoritative for authorization.
+
+Refresh sessions are persisted separately and retain only a SHA-256 digest of a 48-byte opaque random credential. They expire after seven days and MongoDB's TTL index cleans expired records; application logic rejects expiry independently. Refresh rotates one session document atomically. Reuse of the immediately previous credential revokes that session, bounding concurrent-refresh/replay risk. Logout revokes the active session. At most five active sessions are retained per account; the oldest are revoked when issuing another.
+
+Refresh credentials travel in a host-only, HttpOnly, `SameSite=Lax` cookie scoped to `/api/v1/auth`; `Secure` is enabled in production. Local frontend/API ports are same-site under the current localhost topology. `SameSite=Lax` prevents the cookie from accompanying cross-site POSTs; CORS is explicitly origin-restricted but is not treated as a CSRF defense. A future cross-site deployment requires a dedicated CSRF design.
+
+Authentication routes use an in-memory IP rate limit (20 requests per 15 minutes) with safe default `trust proxy` disabled. This is appropriate for one API instance only; distributed enforcement is deferred until a shared rate-limit store is justified. Production disables Mongoose `autoIndex`; index rollout then requires an explicit operational process. Development/test retain model-index initialization.
+
 ## Deferred seams
 
-Cloudinary/S3/R2 storage, an email provider, MongoDB Atlas/Search, Redis/BullMQ, caching, horizontal API replicas, CDN, and observability can be introduced behind future module boundaries. Full OpenAPI generation is deferred until business routes provide enough surface area. Persistent business schemas will require an explicit migration strategy. No distributed infrastructure is needed today.
+Cloudinary/S3/R2 storage, email verification/password reset delivery, OAuth, MFA, MongoDB Atlas/Search, Redis/BullMQ, caching, horizontal API replicas, CDN, and observability can be introduced behind future module boundaries. Full OpenAPI generation is deferred until business routes provide enough surface area. Persistent business schemas will require an explicit migration strategy. No distributed infrastructure is needed today.

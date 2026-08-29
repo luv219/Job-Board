@@ -14,6 +14,8 @@ const environment: Environment = {
   NODE_ENV: 'test', API_HOST: '127.0.0.1', API_PORT: 3000,
   MONGODB_URI: 'mongodb://localhost:27017/job_board_test', WEB_ORIGIN: 'http://localhost:5173',
   LOG_LEVEL: 'silent', REQUEST_BODY_LIMIT: 102_400,
+  ACCESS_TOKEN_SECRET: 'test-secret-that-is-longer-than-thirty-two-characters', ACCESS_TOKEN_ISSUER: 'job-board-api',
+  ACCESS_TOKEN_AUDIENCE: 'job-board-web', ACCESS_TOKEN_TTL_SECONDS: 600, REFRESH_TOKEN_TTL_DAYS: 7,
 };
 
 describe('validation foundation', () => {
@@ -51,6 +53,17 @@ describe('configuration and test database safety', () => {
   it('fails safely for invalid configuration without including values', () => {
     expect(() => loadEnvironment({ ...process.env, MONGODB_URI: 'not-a-uri', WEB_ORIGIN: 'http://localhost:5173' })).toThrow('MONGODB_URI');
     expect(() => loadEnvironment({ ...process.env, MONGODB_URI: 'not-a-uri', WEB_ORIGIN: 'http://localhost:5173' })).not.toThrow('not-a-uri');
+  });
+
+  it('rejects missing authentication secrets without exposing their value', () => {
+    const source = {
+      NODE_ENV: 'test', API_HOST: '127.0.0.1', API_PORT: '3000', MONGODB_URI: 'mongodb://localhost:27017/job_board_test',
+      WEB_ORIGIN: 'http://localhost:5173', LOG_LEVEL: 'silent', REQUEST_BODY_LIMIT: '102400',
+      ACCESS_TOKEN_SECRET: '', ACCESS_TOKEN_ISSUER: 'job-board-api', ACCESS_TOKEN_AUDIENCE: 'job-board-web',
+      ACCESS_TOKEN_TTL_SECONDS: '600', REFRESH_TOKEN_TTL_DAYS: '7',
+    };
+    expect(() => loadEnvironment(source)).toThrow('ACCESS_TOKEN_SECRET');
+    expect(() => loadEnvironment({ ...source, ACCESS_TOKEN_SECRET: 'secret-value-not-for-errors' })).not.toThrow('secret-value-not-for-errors');
   });
 
   it('permits cleanup only for explicitly named test databases', () => {

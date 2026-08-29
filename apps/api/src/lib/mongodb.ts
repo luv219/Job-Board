@@ -14,10 +14,11 @@ function registerConnectionEvents(logger: Logger): void {
   });
 }
 
-export async function connectMongo(uri: string, logger: Logger): Promise<void> {
+export async function connectMongo(uri: string, logger: Logger, autoIndex = true): Promise<void> {
   if (isMongoReady()) return;
   if (connectionAttempt) return connectionAttempt;
   registerConnectionEvents(logger);
+  mongoose.set('autoIndex', autoIndex);
   connectionAttempt = mongoose.connect(uri, { serverSelectionTimeoutMS: 10_000 })
     .then(() => undefined)
     .catch((error: unknown) => {

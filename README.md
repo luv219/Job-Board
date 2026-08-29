@@ -68,6 +68,18 @@ Compose runs `web`, `api`, and an internal-only `mongodb` service. MongoDB data 
 
 All future API routes use `/api/v1`. Controlled errors include a stable code, a safe message, and `X-Request-Id` correlation value.
 
+## Authentication API
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/v1/auth/register` | Register and authenticate an Applicant or Employer account |
+| `POST` | `/api/v1/auth/login` | Authenticate using email/password |
+| `POST` | `/api/v1/auth/refresh` | Rotate the HttpOnly refresh credential and obtain an access token |
+| `POST` | `/api/v1/auth/logout` | Revoke the active refresh session and clear its cookie |
+| `GET` | `/api/v1/auth/me` | Retrieve the current account using a bearer access token |
+
+The access token is returned in the response and is intended for short-lived in-memory client use. The opaque refresh credential is sent only in an HttpOnly, same-site cookie. Registration authenticates the account immediately; email verification delivery, password resets, OAuth, and MFA are intentionally deferred.
+
 ## Repository structure
 
 ```text
@@ -80,6 +92,6 @@ docker/           Application Dockerfiles
 
 ## Phase 1 status and intentionally deferred work
 
-Implemented: workspace foundation, API lifecycle separation, strict configuration, MongoDB lifecycle handling, standardized health/error responses, request validation and query-safety primitives, security middleware, request correlation, bounded shutdown/timeouts, Docker health checks, isolated test-database guardrails, tests, and CI.
+Implemented: workspace foundation, API lifecycle separation, strict configuration, MongoDB lifecycle handling, standardized health/error responses, request validation and query-safety primitives, security middleware, request correlation, bounded shutdown/timeouts, Docker health checks, isolated test-database guardrails, password authentication, rotating refresh sessions, RBAC primitives, tests, and CI.
 
 Deferred: authentication, user/company/job/application models and workflows, resumes and storage providers, email, job search, dashboards, caching, queues, analytics, payments, and all other product features. See [the architecture document](docs/architecture/architecture.md) for operational conventions and scale-up seams.

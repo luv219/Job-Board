@@ -12,6 +12,11 @@ const environment: Environment = {
   WEB_ORIGIN: 'http://localhost:5173',
   LOG_LEVEL: 'silent',
   REQUEST_BODY_LIMIT: 102_400,
+  ACCESS_TOKEN_SECRET: 'test-secret-that-is-longer-than-thirty-two-characters',
+  ACCESS_TOKEN_ISSUER: 'job-board-api',
+  ACCESS_TOKEN_AUDIENCE: 'job-board-web',
+  ACCESS_TOKEN_TTL_SECONDS: 600,
+  REFRESH_TOKEN_TTL_DAYS: 7,
 };
 
 function appWhen(databaseReady: boolean) {

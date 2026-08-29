@@ -7,7 +7,7 @@ import { connectMongo, disconnectMongo, isMongoReady } from './lib/mongodb.js';
 async function main(): Promise<void> {
   const environment = loadEnvironment();
   const logger = createLogger(environment);
-  await connectMongo(environment.MONGODB_URI, logger);
+  await connectMongo(environment.MONGODB_URI, logger, environment.NODE_ENV !== 'production');
 
   const app = createApp({ environment, logger, isDatabaseReady: isMongoReady });
   const server = http.createServer(app);

@@ -25,6 +25,10 @@ export const apiErrorCodeSchema = z.enum([
   'VALIDATION_ERROR',
   'NOT_FOUND',
   'INTERNAL_ERROR',
+  'UNAUTHENTICATED',
+  'FORBIDDEN',
+  'CONFLICT',
+  'TOO_MANY_REQUESTS',
 ]);
 
 export const apiErrorResponseSchema = z.object({
@@ -37,3 +41,22 @@ export const apiErrorResponseSchema = z.object({
 });
 
 export type ApiErrorResponse = z.infer<typeof apiErrorResponseSchema>;
+
+export const userRoleSchema = z.enum(['APPLICANT', 'EMPLOYER']);
+export type UserRole = z.infer<typeof userRoleSchema>;
+
+export const publicUserSchema = z.object({
+  id: z.string(),
+  email: z.string().email(),
+  role: userRoleSchema,
+  accountStatus: z.enum(['ACTIVE', 'DISABLED']),
+  createdAt: z.string(),
+});
+export type PublicUser = z.infer<typeof publicUserSchema>;
+
+export const authResponseSchema = z.object({
+  accessToken: z.string(),
+  expiresIn: z.number().int().positive(),
+  user: publicUserSchema,
+});
+export type AuthResponse = z.infer<typeof authResponseSchema>;
