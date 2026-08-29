@@ -5,12 +5,14 @@ import { Company } from '../models/company.js';
 import { Job, type JobRecord } from '../models/job.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { validate } from '../validation/validate.js';
-import { employerJobListSchema, jobCreateSchema, jobPatchSchema, type JobCreateInput, type JobPatchInput } from '../jobs/validation.js';
+import { employerJobListSchema, jobCreateSchema, jobPatchSchema, publicJobSearchSchema, type JobCreateInput, type JobPatchInput, type PublicJobSearchQuery } from '../jobs/validation.js';
 import { canEditJob, canTransition, createJobSlug, isPublishable, type JobAction } from '../jobs/lifecycle.js';
 import { employerJobResponse, publicJobResponse } from '../jobs/serializers.js';
 import { AppError } from '../lib/app-error.js';
 import { isValidObjectId } from '../lib/object-id.js';
 import { parseSort } from '../lib/sorting.js';
+import { publicActiveJobFilter } from '../jobs/public-eligibility.js';
+import { searchPublicJobs } from '../jobs/search.js';
 
 function duplicate(error: unknown): boolean { return typeof error === 'object' && error !== null && 'code' in error && error.code === 11000; }
 
@@ -136,10 +138,16 @@ export function createJobRouter(environment: Environment): Router {
   router.post('/employer/jobs/:jobId/close', ...employerOnly, transition('close'));
   router.post('/employer/jobs/:jobId/archive', ...employerOnly, transition('archive'));
 
+  router.get('/jobs', validate('query', publicJobSearchSchema), async (_request, response, next) => {
+    try {
+      response.json(await searchPublicJobs(response.locals.validatedQuery as PublicJobSearchQuery));
+    } catch (error) { next(error); }
+  });
+
   router.get('/jobs/:slug', async (request, response, next) => {
     try {
-      const job = await Job.findOne({ slug: requireSlug(request.params.slug), status: 'PUBLISHED' }).lean();
-      if (!job || (job.applicationDeadline && job.applicationDeadline < new Date())) throw new AppError({ statusCode: 404, code: 'JOB_NOT_FOUND', message: 'Job not found' });
+      const job = await Job.findOne({ ...publicActiveJobFilter(new Date()), slug: requireSlug(request.params.slug) }).lean();
+      if (!job) throw new AppError({ statusCode: 404, code: 'JOB_NOT_FOUND', message: 'Job not found' });
       const company = await Company.findById(job.companyId).lean();
       if (!company) throw new AppError({ statusCode: 404, code: 'JOB_NOT_FOUND', message: 'Job not found' });
       response.json({ job: publicJobResponse(job, company) });

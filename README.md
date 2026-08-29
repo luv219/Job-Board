@@ -99,6 +99,18 @@ Jobs are a separate collection that reference their Company and creator; they ar
 
 Job slugs are generated once by the server and stay stable when a title changes. The lifecycle is `DRAFT → PUBLISHED → CLOSED → ARCHIVED`, with `DRAFT → ARCHIVED` also supported; all lifecycle actions use conditional database updates. Public detail returns only Published Jobs with an unexpired deadline, excludes employer identity and Company ownership data, and omits salary whenever `salary.visible` is false. A passed deadline does not change stored status during reads.
 
+## Public Job discovery
+
+`GET /api/v1/jobs` is public and returns concise Job cards for only active Published Jobs. Its strict query contract supports `q`, `city`, `state`, `country`, `workMode`, `employmentType`, `skills`, `salaryMin`, `salaryMax`, `currency`, `salaryPeriod`, `company`, `postedWithin`, `sort`, `page`, and `limit`.
+
+- `q` uses MongoDB text search across title, skills, requirements, and description. It ranks title highest; it is not fuzzy search, autocomplete, or semantic search.
+- Location and skills use escaped, case-insensitive exact matching. `skills` is comma-separated and uses **ANY** matching semantics.
+- Salary ranges require both matching `currency` and `salaryPeriod`; only `salary.visible=true` Jobs participate, so hidden compensation never influences results.
+- `company` is a public Company slug; unknown slugs return an empty result. `postedWithin` is one of `24h`, `7d`, or `30d`, based on `publishedAt`.
+- Sort options are `newest`, `oldest`, and `relevance`. Keyword searches default to text relevance; otherwise results default to newest. Pagination defaults to page `1`, limit `20`, with a maximum limit of `100`.
+
+Deep offset pagination uses `skip`/`limit` for the initial product. Cursor pagination and MongoDB Atlas Search are future scale-up options, not current infrastructure.
+
 ## Repository structure
 
 ```text
@@ -113,4 +125,4 @@ docker/           Application Dockerfiles
 
 Implemented: workspace foundation, API lifecycle separation, strict configuration, MongoDB lifecycle handling, standardized health/error responses, request validation and query-safety primitives, security middleware, request correlation, bounded shutdown/timeouts, Docker health checks, isolated test-database guardrails, password authentication, rotating refresh sessions, RBAC primitives, private profiles/companies, and core employer Job lifecycle management.
 
-Deferred: public Job listing/search/filtering, applications, saved jobs, resumes and storage providers, email, dashboards, company teams, caching, queues, analytics, payments, and all other product features. See [the architecture document](docs/architecture/architecture.md) for operational conventions and scale-up seams.
+Deferred: applications, saved jobs, resumes and storage providers, email, dashboards, company teams, caching, queues, analytics, payments, advanced Atlas Search capabilities, and all other product features. See [the architecture document](docs/architecture/architecture.md) for operational conventions and scale-up seams.

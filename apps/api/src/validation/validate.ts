@@ -5,7 +5,7 @@ import { AppError } from '../lib/app-error.js';
 type RequestPart = 'body' | 'params' | 'query';
 
 export function validate(part: RequestPart, schema: z.ZodType): (request: Request, response: Response, next: NextFunction) => void {
-  return (request, _response, next) => {
+  return (request, response, next) => {
     const result = schema.safeParse(request[part]);
     if (!result.success) {
       next(new AppError({
@@ -18,7 +18,7 @@ export function validate(part: RequestPart, schema: z.ZodType): (request: Reques
     }
 
     if (part === 'query') {
-      Object.assign(request.query, result.data);
+      response.locals.validatedQuery = result.data;
     } else {
       request[part] = result.data;
     }

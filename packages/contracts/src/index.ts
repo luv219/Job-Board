@@ -106,3 +106,21 @@ export type EmploymentType = z.infer<typeof employmentTypeSchema>;
 export type WorkMode = z.infer<typeof workModeSchema>;
 export type Salary = z.infer<typeof salarySchema>;
 export type JobPublic = z.infer<typeof jobPublicSchema>;
+
+export const publicJobListItemSchema = z.object({
+  id: z.string(), slug: z.string(), title: z.string(), skills: z.array(z.string()), location: locationSchema,
+  workMode: workModeSchema, employmentType: employmentTypeSchema, salary: salarySchema.optional(), applicationDeadline: z.string().optional(),
+  publishedAt: z.string(), company: publicJobCompanySchema,
+});
+export const paginationMetadataSchema = z.object({ page: z.number().int().positive(), limit: z.number().int().positive(), total: z.number().int().nonnegative(), totalPages: z.number().int().nonnegative() });
+export const publicJobSearchResponseSchema = z.object({ items: z.array(publicJobListItemSchema), pagination: paginationMetadataSchema });
+export const publicJobSearchQuerySchema = z.object({
+  q: z.string().optional(), city: z.string().optional(), state: z.string().optional(), country: z.string().optional(),
+  workMode: workModeSchema.optional(), employmentType: employmentTypeSchema.optional(), skills: z.string().optional(),
+  salaryMin: z.string().optional(), salaryMax: z.string().optional(), currency: z.string().optional(), salaryPeriod: salaryPeriodSchema.optional(),
+  company: z.string().optional(), postedWithin: z.enum(['24h', '7d', '30d']).optional(), sort: z.enum(['newest', 'oldest', 'relevance']).optional(),
+  page: z.string().optional(), limit: z.string().optional(),
+});
+export type PublicJobListItem = z.infer<typeof publicJobListItemSchema>;
+export type PublicJobSearchResponse = z.infer<typeof publicJobSearchResponseSchema>;
+export type PublicJobSearchQuery = z.infer<typeof publicJobSearchQuerySchema>;

@@ -52,5 +52,8 @@ const schema = new Schema<JobRecord>({
 }, { timestamps: true, strict: 'throw' });
 
 schema.index({ companyId: 1, status: 1, createdAt: -1 });
+schema.index({ status: 1, publishedAt: -1 });
+schema.index({ companyId: 1, status: 1, publishedAt: -1 });
+schema.index({ title: 'text', skills: 'text', description: 'text', requirements: 'text' }, { name: 'job_public_text', weights: { title: 10, skills: 6, requirements: 3, description: 1 } });
 
 export const Job = model<JobRecord>('Job', schema);

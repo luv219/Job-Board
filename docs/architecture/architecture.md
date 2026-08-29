@@ -54,7 +54,17 @@ Applicant skills, experience, education, and text fields are bounded. Resume dat
 
 The explicit lifecycle is `DRAFT → PUBLISHED → CLOSED → ARCHIVED`, with `DRAFT → ARCHIVED` supported for unused drafts. Reopening and deletion are intentionally absent. Drafts and Published Jobs can receive content corrections; Closed and Archived Jobs are immutable. Status changes are dedicated actions that condition their database update on the expected current state, avoiding a read-then-blind-write race. Publishing assigns `publishedAt`; closing assigns `closedAt`; archiving assigns `archivedAt`. A deadline is checked before publication and public detail reads treat an expired published Job as unavailable, but reads never silently mutate status or auto-close a Job.
 
-The public Job route accepts only a slug and returns only Published Jobs. Its serializer excludes `createdBy`, Company ownership, and Company timestamps. Salary values are included only when `salary.visible` is true. Public Job listing/search/filtering and Applications are deferred to later phases; there is no search index, application array, queue, or notification side effect.
+The public Job-detail route accepts only a slug and returns only Published Jobs. Its serializer excludes `createdBy`, Company ownership, and Company timestamps. Salary values are included only when `salary.visible` is true. Applications remain deferred; there is no application array, queue, or notification side effect.
+
+## Public Job discovery
+
+Public Job detail and `GET /api/v1/jobs` share one active-Job rule: `PUBLISHED` status and no deadline, or a deadline at/after the single request timestamp. Reads never update a Job. The listing accepts a deliberately small, strict query surface: keyword (`q`), structured location, work mode, employment type, comma-separated skills, public salary range with matching currency and period, Company slug, posting window, sorting, and bounded page/limit pagination. Unknown or malformed parameters return the standard validation error.
+
+Keyword search uses MongoDB's single deliberate text index over title, skills, requirements, and description, with title weighted most heavily. It provides MongoDB text-token matching and score ordering only; it is not fuzzy search, autocomplete, synonym expansion, highlighting, or semantic search. Exact case-insensitive location and skills matching uses escaped anchored regular expressions, never client-supplied patterns. Skills use ANY semantics within the requested list; filter categories compose with AND.
+
+Public salary filters require both `currency` and `salaryPeriod` and select only `salary.visible=true` records before applying overlap comparisons. Hidden or absent salary never influences filtering, sorting, or output. The supported sorts are newest, oldest, and text relevance (only with `q`); keyword searches default to relevance, while ordinary browsing defaults to newest. Salary sorting and industry filtering are deferred because the initial salary privacy/period semantics and free-form industry data do not justify them.
+
+Results use `skip`/`limit` (default 20, maximum 100) and one consistent count filter. Companies are loaded in one batched public-field query after the Job page, avoiding N+1 lookups. The index set adds `{ status, publishedAt }` for default active browsing and `{ companyId, status, publishedAt }` for Company-scoped public browsing, alongside the existing ownership index and one weighted text index. No deadline-specific index is added yet: it would add write cost without an established query-plan need. Deep offsets, caching, cursor pagination, Atlas Search, and read replicas remain future measured scale-up seams.
 
 ## Deferred seams
 
