@@ -29,6 +29,10 @@ export const apiErrorCodeSchema = z.enum([
   'FORBIDDEN',
   'CONFLICT',
   'TOO_MANY_REQUESTS',
+  'PROFILE_NOT_FOUND',
+  'PROFILE_ALREADY_EXISTS',
+  'COMPANY_NOT_FOUND',
+  'COMPANY_ALREADY_EXISTS',
 ]);
 
 export const apiErrorResponseSchema = z.object({
@@ -60,3 +64,15 @@ export const authResponseSchema = z.object({
   user: publicUserSchema,
 });
 export type AuthResponse = z.infer<typeof authResponseSchema>;
+
+export const locationSchema = z.object({ city: z.string(), state: z.string().optional(), country: z.string() });
+export const applicantProfileSchema = z.object({
+  id: z.string(), fullName: z.string(), headline: z.string().optional(), bio: z.string().optional(),
+  location: locationSchema, skills: z.array(z.string()), experience: z.array(z.unknown()), education: z.array(z.unknown()),
+  createdAt: z.string(), updatedAt: z.string(),
+});
+export const employerProfileSchema = z.object({ id: z.string(), fullName: z.string(), jobTitle: z.string().optional(), phone: z.string().optional(), createdAt: z.string(), updatedAt: z.string() });
+export const companyPublicSchema = z.object({
+  id: z.string(), name: z.string(), slug: z.string(), description: z.string().optional(), website: z.string().optional(),
+  industry: z.string().optional(), companySize: z.string().optional(), location: locationSchema, createdAt: z.string(), updatedAt: z.string(),
+});

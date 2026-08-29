@@ -42,6 +42,12 @@ Refresh credentials travel in a host-only, HttpOnly, `SameSite=Lax` cookie scope
 
 Authentication routes use an in-memory IP rate limit (20 requests per 15 minutes) with safe default `trust proxy` disabled. This is appropriate for one API instance only; distributed enforcement is deferred until a shared rate-limit store is justified. Production disables Mongoose `autoIndex`; index rollout then requires an explicit operational process. Development/test retain model-index initialization.
 
+## Profile and company foundation
+
+Authentication identity remains separate from business data. `ApplicantProfile` and `EmployerProfile` are one-to-zero-or-one records owned by their matching User; self routes are always scoped to the authenticated principal. `Company` is separately owned by one Employer and has both a unique owner constraint and a server-generated, stable unique slug. Public Company responses intentionally exclude ownership and employer personal data.
+
+Applicant skills, experience, education, and text fields are bounded. Resume data, applications, and saved jobs are not embedded in profiles. Companies do not contain reverse job arrays; a future Job will reference Company by ID. The one-employer/one-company rule is an intentional initial simplification; future multi-recruiter work can introduce CompanyMembership without changing Company identity.
+
 ## Deferred seams
 
 Cloudinary/S3/R2 storage, email verification/password reset delivery, OAuth, MFA, MongoDB Atlas/Search, Redis/BullMQ, caching, horizontal API replicas, CDN, and observability can be introduced behind future module boundaries. Full OpenAPI generation is deferred until business routes provide enough surface area. Persistent business schemas will require an explicit migration strategy. No distributed infrastructure is needed today.

@@ -80,6 +80,10 @@ All future API routes use `/api/v1`. Controlled errors include a stable code, a 
 
 The access token is returned in the response and is intended for short-lived in-memory client use. The opaque refresh credential is sent only in an HttpOnly, same-site cookie. Registration authenticates the account immediately; email verification delivery, password resets, OAuth, and MFA are intentionally deferred.
 
+## Profile and company API
+
+Applicants manage only `/api/v1/applicant/profile`; employers manage only `/api/v1/employer/profile` and `/api/v1/employer/company`. `GET /api/v1/companies/:slug` exposes a deliberately public company representation. Profiles are private, and each Employer initially owns one Company. Jobs, applications, resumes, uploads, dashboards, and company teams remain deferred.
+
 ## Repository structure
 
 ```text

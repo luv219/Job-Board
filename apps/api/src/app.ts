@@ -10,6 +10,7 @@ import { errorHandler, notFoundHandler } from './middleware/errors.js';
 import { requestId } from './middleware/request-id.js';
 import { createHealthRouter } from './routes/health.js';
 import { createAuthRouter } from './routes/auth.js';
+import { createProfileRouter } from './routes/profiles.js';
 
 interface AppOptions {
   environment: Environment;
@@ -30,6 +31,7 @@ export function createApp({ environment, logger, isDatabaseReady, configureRoute
   app.use(cookieParser());
   app.use('/api/v1/health', createHealthRouter(isDatabaseReady));
   app.use('/api/v1/auth', createAuthRouter(environment));
+  app.use('/api/v1', createProfileRouter(environment));
   configureRoutes?.(app);
   app.use(notFoundHandler);
   app.use(errorHandler(environment));
