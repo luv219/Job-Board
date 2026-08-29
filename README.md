@@ -1,6 +1,6 @@
 # Job Board
 
-A production-oriented TypeScript MERN foundation for a future niche job board. Phase 0 establishes the repository, runtime safeguards, and developer workflow; it intentionally contains no job-board business functionality.
+A production-oriented TypeScript MERN foundation for a future niche job board. Phase 1 hardens the backend platform and data-layer conventions; it intentionally contains no job-board business functionality.
 
 ## Architecture
 
@@ -30,7 +30,7 @@ npm install
 Copy-Item .env.example .env
 ```
 
-Set `MONGODB_URI` in `.env` to a local MongoDB instance. The example is safe for local development and contains no secret.
+Set `MONGODB_URI` in `.env` to a local MongoDB instance. `API_HOST`, `API_PORT`, `WEB_ORIGIN`, `LOG_LEVEL`, and `REQUEST_BODY_LIMIT` are validated at startup. The example is safe for local development and contains no secret.
 
 ## Local development
 
@@ -40,7 +40,7 @@ Start MongoDB separately, then run:
 npm run dev
 ```
 
-The web app is served at `http://localhost:5173`; the API listens on `http://localhost:3000` by default. Individual applications can be started with `npm run dev:web` and `npm run dev:api`.
+The web app is served at `http://localhost:5173`; the API listens on `http://localhost:3000` by default. Individual applications can be started with `npm run dev:web` and `npm run dev:api`. API startup requires a reachable MongoDB; Docker Compose handles that dependency automatically.
 
 ## Docker development
 
@@ -63,8 +63,10 @@ Compose runs `web`, `api`, and an internal-only `mongodb` service. MongoDB data 
 
 ## Health endpoints
 
-- `GET /api/v1/health/live` — reports whether the API process is running; never waits for MongoDB.
-- `GET /api/v1/health/ready` — reports readiness and returns `503` until MongoDB is connected.
+- `GET /api/v1/health/live` — reports whether the API process is running; never depends on MongoDB.
+- `GET /api/v1/health/ready` — returns `200` with MongoDB status when connected, otherwise `503` with a safe unavailable status.
+
+All future API routes use `/api/v1`. Controlled errors include a stable code, a safe message, and `X-Request-Id` correlation value.
 
 ## Repository structure
 
@@ -76,8 +78,8 @@ docker/           Application Dockerfiles
 .github/workflows/ CI quality gate
 ```
 
-## Phase 0 status and intentionally deferred work
+## Phase 1 status and intentionally deferred work
 
-Implemented: workspace foundation, operational health endpoints, validation, security baseline, structured logging, graceful shutdown, Docker development, tests, and CI.
+Implemented: workspace foundation, API lifecycle separation, strict configuration, MongoDB lifecycle handling, standardized health/error responses, request validation and query-safety primitives, security middleware, request correlation, bounded shutdown/timeouts, Docker health checks, isolated test-database guardrails, tests, and CI.
 
-Deferred: authentication, user/company/job/application models and workflows, resumes and storage providers, email, job search, dashboards, caching, queues, analytics, payments, and all other product features. See [the architecture document](docs/architecture/architecture.md) for scale-up seams.
+Deferred: authentication, user/company/job/application models and workflows, resumes and storage providers, email, job search, dashboards, caching, queues, analytics, payments, and all other product features. See [the architecture document](docs/architecture/architecture.md) for operational conventions and scale-up seams.

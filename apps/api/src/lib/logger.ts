@@ -1,9 +1,9 @@
 import pino from 'pino';
 import type { Environment } from '../config/env.js';
 
-export function createLogger(environment: Pick<Environment, 'NODE_ENV'>): pino.Logger {
+export function createLogger(environment: Pick<Environment, 'NODE_ENV' | 'LOG_LEVEL'>): pino.Logger {
   return pino({
-    level: environment.NODE_ENV === 'test' ? 'silent' : environment.NODE_ENV === 'production' ? 'info' : 'debug',
+    level: environment.NODE_ENV === 'test' ? 'silent' : environment.LOG_LEVEL,
     redact: {
       paths: [
         'req.headers.authorization', 'req.headers.cookie', 'req.headers["set-cookie"]',

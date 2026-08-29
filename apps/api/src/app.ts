@@ -1,5 +1,5 @@
 import express from 'express';
-import type { Request, Response } from 'express';
+import type { Express, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
@@ -13,18 +13,20 @@ interface AppOptions {
   environment: Environment;
   logger: Logger;
   isDatabaseReady: () => boolean;
+  configureRoutes?: (app: Express) => void;
 }
 
-export function createApp({ environment, logger, isDatabaseReady }: AppOptions) {
+export function createApp({ environment, logger, isDatabaseReady, configureRoutes }: AppOptions) {
   const app = express();
   app.disable('x-powered-by');
   app.use(requestId);
   app.use(pinoHttp<Request, Response>({ logger, genReqId: (request) => request.id }));
   app.use(helmet());
   app.use(cors({ origin: environment.WEB_ORIGIN, methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], credentials: false }));
-  app.use(express.json({ limit: '100kb' }));
-  app.use(express.urlencoded({ extended: false, limit: '100kb' }));
+  app.use(express.json({ limit: environment.REQUEST_BODY_LIMIT }));
+  app.use(express.urlencoded({ extended: false, limit: environment.REQUEST_BODY_LIMIT }));
   app.use('/api/v1/health', createHealthRouter(isDatabaseReady));
+  configureRoutes?.(app);
   app.use(notFoundHandler);
   app.use(errorHandler(environment));
   return app;

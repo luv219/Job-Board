@@ -6,9 +6,12 @@ import type { Environment } from '../src/config/env.js';
 
 const environment: Environment = {
   NODE_ENV: 'test',
+  API_HOST: '127.0.0.1',
   API_PORT: 3000,
   MONGODB_URI: 'mongodb://localhost:27017/job_board_test',
   WEB_ORIGIN: 'http://localhost:5173',
+  LOG_LEVEL: 'silent',
+  REQUEST_BODY_LIMIT: 102_400,
 };
 
 function appWhen(databaseReady: boolean) {
@@ -23,12 +26,12 @@ describe('health endpoints', () => {
 
   it('reports readiness when MongoDB is available', async () => {
     const response = await request(appWhen(true)).get('/api/v1/health/ready').expect(200);
-    expect(response.body).toEqual({ status: 'ok' });
+    expect(response.body).toEqual({ status: 'ready', dependencies: { mongodb: 'available' } });
   });
 
   it('returns a controlled response when not ready', async () => {
     const response = await request(appWhen(false)).get('/api/v1/health/ready').expect(503);
-    expect(response.body).toEqual({ status: 'not_ready' });
+    expect(response.body).toEqual({ status: 'not_ready', dependencies: { mongodb: 'unavailable' } });
   });
 });
 
@@ -46,6 +49,27 @@ describe('API error handling', () => {
       .send('{')
       .expect(400);
     expect(response.body.error).toMatchObject({ code: 'BAD_REQUEST' });
+    expect(response.body.error.requestId).toEqual(expect.any(String));
+  });
+
+  it('preserves a safe request ID and replaces malformed IDs', async () => {
+    const safe = await request(appWhen(true)).get('/api/v1/health/live').set('x-request-id', 'request_123').expect(200);
+    expect(safe.headers['x-request-id']).toBe('request_123');
+
+    const malformed = await request(appWhen(true)).get('/api/v1/health/live').set('x-request-id', 'x'.repeat(129)).expect(200);
+    expect(malformed.headers['x-request-id']).not.toBe('x'.repeat(129));
+    expect(malformed.headers['x-request-id']).toMatch(/^[a-f\d-]{36}$/i);
+  });
+
+  it('turns unexpected errors into a safe 500 response', async () => {
+    const app = createApp({
+      environment,
+      logger: createLogger(environment),
+      isDatabaseReady: () => true,
+      configureRoutes: (instance) => instance.get('/test/unexpected', () => { throw new Error('private failure detail'); }),
+    });
+    const response = await request(app).get('/test/unexpected').expect(500);
+    expect(response.body.error).toMatchObject({ code: 'INTERNAL_ERROR', message: 'Internal server error' });
     expect(response.body.error.requestId).toEqual(expect.any(String));
   });
 });
