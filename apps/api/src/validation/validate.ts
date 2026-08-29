@@ -17,7 +17,11 @@ export function validate(part: RequestPart, schema: z.ZodType): (request: Reques
       return;
     }
 
-    request[part] = result.data;
+    if (part === 'query') {
+      Object.assign(request.query, result.data);
+    } else {
+      request[part] = result.data;
+    }
     next();
   };
 }

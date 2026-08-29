@@ -1,6 +1,6 @@
 # Job Board
 
-A production-oriented TypeScript MERN foundation for a future niche job board. Phase 1 hardens the backend platform and data-layer conventions; it intentionally contains no job-board business functionality.
+A production-oriented TypeScript MERN modular monolith for a niche job board. Phase 4 provides the secure employer Job-management and public Job-detail foundation; applications and public Job search remain deliberately deferred.
 
 ## Architecture
 
@@ -12,7 +12,7 @@ The codebase is a small npm-workspaces modular monolith:
 
 - `apps/web` — React 19 + Vite client.
 - `apps/api` — Express 5 API, MongoDB lifecycle, security middleware, and health checks.
-- `packages/contracts` — shared public API contracts (currently health responses only).
+- `packages/contracts` — small shared public API contracts and controlled Job enums.
 
 ## Stack
 
@@ -80,9 +80,24 @@ All future API routes use `/api/v1`. Controlled errors include a stable code, a 
 
 The access token is returned in the response and is intended for short-lived in-memory client use. The opaque refresh credential is sent only in an HttpOnly, same-site cookie. Registration authenticates the account immediately; email verification delivery, password resets, OAuth, and MFA are intentionally deferred.
 
-## Profile and company API
+## Profile, company, and Job API
 
-Applicants manage only `/api/v1/applicant/profile`; employers manage only `/api/v1/employer/profile` and `/api/v1/employer/company`. `GET /api/v1/companies/:slug` exposes a deliberately public company representation. Profiles are private, and each Employer initially owns one Company. Jobs, applications, resumes, uploads, dashboards, and company teams remain deferred.
+Applicants manage only `/api/v1/applicant/profile`; employers manage only `/api/v1/employer/profile` and `/api/v1/employer/company`. `GET /api/v1/companies/:slug` exposes a deliberately public company representation. Profiles are private, and each Employer initially owns one Company.
+
+Jobs are a separate collection that reference their Company and creator; they are never embedded in a Company. Employers can create and manage only their own Company's Jobs through these role-protected routes:
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/v1/employer/jobs` | Create a server-owned `DRAFT` Job |
+| `GET` | `/api/v1/employer/jobs` | List only the Employer's Jobs (`status`, `page`, `limit`, `sort`) |
+| `GET` | `/api/v1/employer/jobs/:jobId` | Retrieve an owned Job |
+| `PATCH` | `/api/v1/employer/jobs/:jobId` | Edit content on `DRAFT` or `PUBLISHED` Jobs |
+| `POST` | `/api/v1/employer/jobs/:jobId/publish` | Publish a Draft |
+| `POST` | `/api/v1/employer/jobs/:jobId/close` | Close a Published Job |
+| `POST` | `/api/v1/employer/jobs/:jobId/archive` | Archive a Draft or Closed Job |
+| `GET` | `/api/v1/jobs/:slug` | Retrieve one public Published Job |
+
+Job slugs are generated once by the server and stay stable when a title changes. The lifecycle is `DRAFT → PUBLISHED → CLOSED → ARCHIVED`, with `DRAFT → ARCHIVED` also supported; all lifecycle actions use conditional database updates. Public detail returns only Published Jobs with an unexpired deadline, excludes employer identity and Company ownership data, and omits salary whenever `salary.visible` is false. A passed deadline does not change stored status during reads.
 
 ## Repository structure
 
@@ -94,8 +109,8 @@ docker/           Application Dockerfiles
 .github/workflows/ CI quality gate
 ```
 
-## Phase 1 status and intentionally deferred work
+## Phase 4 status and intentionally deferred work
 
-Implemented: workspace foundation, API lifecycle separation, strict configuration, MongoDB lifecycle handling, standardized health/error responses, request validation and query-safety primitives, security middleware, request correlation, bounded shutdown/timeouts, Docker health checks, isolated test-database guardrails, password authentication, rotating refresh sessions, RBAC primitives, tests, and CI.
+Implemented: workspace foundation, API lifecycle separation, strict configuration, MongoDB lifecycle handling, standardized health/error responses, request validation and query-safety primitives, security middleware, request correlation, bounded shutdown/timeouts, Docker health checks, isolated test-database guardrails, password authentication, rotating refresh sessions, RBAC primitives, private profiles/companies, and core employer Job lifecycle management.
 
-Deferred: authentication, user/company/job/application models and workflows, resumes and storage providers, email, job search, dashboards, caching, queues, analytics, payments, and all other product features. See [the architecture document](docs/architecture/architecture.md) for operational conventions and scale-up seams.
+Deferred: public Job listing/search/filtering, applications, saved jobs, resumes and storage providers, email, dashboards, company teams, caching, queues, analytics, payments, and all other product features. See [the architecture document](docs/architecture/architecture.md) for operational conventions and scale-up seams.

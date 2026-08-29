@@ -48,6 +48,14 @@ Authentication identity remains separate from business data. `ApplicantProfile` 
 
 Applicant skills, experience, education, and text fields are bounded. Resume data, applications, and saved jobs are not embedded in profiles. Companies do not contain reverse job arrays; a future Job will reference Company by ID. The one-employer/one-company rule is an intentional initial simplification; future multi-recruiter work can introduce CompanyMembership without changing Company identity.
 
+## Job management foundation
+
+`Job` is a separate, strict MongoDB collection rather than an unbounded `Company.jobs` array. Each Job references `companyId` and `createdBy`, both set from the authenticated Employer and their owned Company on the server. The Job schema includes bounded plain-text description, requirements and skills; structured location; controlled work-mode/employment-type values; optional structured salary; status; optional application deadline; and lifecycle timestamps. It has a globally unique stable slug plus a compound `{ companyId, status, createdAt }` index for bounded Employer management queries.
+
+The explicit lifecycle is `DRAFT → PUBLISHED → CLOSED → ARCHIVED`, with `DRAFT → ARCHIVED` supported for unused drafts. Reopening and deletion are intentionally absent. Drafts and Published Jobs can receive content corrections; Closed and Archived Jobs are immutable. Status changes are dedicated actions that condition their database update on the expected current state, avoiding a read-then-blind-write race. Publishing assigns `publishedAt`; closing assigns `closedAt`; archiving assigns `archivedAt`. A deadline is checked before publication and public detail reads treat an expired published Job as unavailable, but reads never silently mutate status or auto-close a Job.
+
+The public Job route accepts only a slug and returns only Published Jobs. Its serializer excludes `createdBy`, Company ownership, and Company timestamps. Salary values are included only when `salary.visible` is true. Public Job listing/search/filtering and Applications are deferred to later phases; there is no search index, application array, queue, or notification side effect.
+
 ## Deferred seams
 
 Cloudinary/S3/R2 storage, email verification/password reset delivery, OAuth, MFA, MongoDB Atlas/Search, Redis/BullMQ, caching, horizontal API replicas, CDN, and observability can be introduced behind future module boundaries. Full OpenAPI generation is deferred until business routes provide enough surface area. Persistent business schemas will require an explicit migration strategy. No distributed infrastructure is needed today.

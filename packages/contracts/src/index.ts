@@ -33,6 +33,10 @@ export const apiErrorCodeSchema = z.enum([
   'PROFILE_ALREADY_EXISTS',
   'COMPANY_NOT_FOUND',
   'COMPANY_ALREADY_EXISTS',
+  'COMPANY_REQUIRED',
+  'JOB_NOT_FOUND',
+  'JOB_INVALID_TRANSITION',
+  'JOB_NOT_PUBLISHABLE',
 ]);
 
 export const apiErrorResponseSchema = z.object({
@@ -76,3 +80,29 @@ export const companyPublicSchema = z.object({
   id: z.string(), name: z.string(), slug: z.string(), description: z.string().optional(), website: z.string().optional(),
   industry: z.string().optional(), companySize: z.string().optional(), location: locationSchema, createdAt: z.string(), updatedAt: z.string(),
 });
+
+export const jobStatusSchema = z.enum(['DRAFT', 'PUBLISHED', 'CLOSED', 'ARCHIVED']);
+export const employmentTypeSchema = z.enum(['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERNSHIP', 'TEMPORARY']);
+export const workModeSchema = z.enum(['ONSITE', 'HYBRID', 'REMOTE']);
+export const salaryPeriodSchema = z.enum(['YEAR', 'MONTH', 'HOUR']);
+export const salarySchema = z.object({
+  min: z.number().nonnegative().optional(),
+  max: z.number().nonnegative().optional(),
+  currency: z.string().regex(/^[A-Z]{3}$/),
+  period: salaryPeriodSchema,
+  visible: z.boolean(),
+});
+export const publicJobCompanySchema = z.object({
+  id: z.string(), name: z.string(), slug: z.string(), description: z.string().optional(), website: z.string().optional(),
+  industry: z.string().optional(), companySize: z.string().optional(), location: locationSchema,
+});
+export const jobPublicSchema = z.object({
+  id: z.string(), slug: z.string(), title: z.string(), description: z.string(), requirements: z.array(z.string()), skills: z.array(z.string()),
+  location: locationSchema, workMode: workModeSchema, employmentType: employmentTypeSchema, salary: salarySchema.optional(),
+  applicationDeadline: z.string().optional(), publishedAt: z.string(), company: publicJobCompanySchema,
+});
+export type JobStatus = z.infer<typeof jobStatusSchema>;
+export type EmploymentType = z.infer<typeof employmentTypeSchema>;
+export type WorkMode = z.infer<typeof workModeSchema>;
+export type Salary = z.infer<typeof salarySchema>;
+export type JobPublic = z.infer<typeof jobPublicSchema>;
