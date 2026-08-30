@@ -9,6 +9,16 @@ const optionalEmail = z.preprocess(
   z.string().trim().email().max(320).optional(),
 );
 
+function productionMongoTargetIsUnsafe(uri: string): boolean {
+  const authority = uri.replace(/^mongodb(?:\+srv)?:\/\//i, '').split(/[/?]/, 1)[0]?.split('@').at(-1) ?? '';
+  const hosts = authority.split(',').map((host) => {
+    const trimmed = host.trim();
+    return trimmed.startsWith('[') ? trimmed.slice(1, trimmed.indexOf(']')).toLowerCase() : trimmed.split(':', 1)[0]?.toLowerCase();
+  });
+  const database = new URL(uri).pathname.replace(/^\/+|\/+$/g, '');
+  return hosts.some((host) => host === 'localhost' || host === '127.0.0.1' || host === '::1') || database.endsWith('_test');
+}
+
 const environmentSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_HOST: z.string().trim().min(1).max(253).default('0.0.0.0'),
@@ -46,6 +56,9 @@ const environmentSchema = z.object({
     context.addIssue({ code: 'custom', path: ['ACCESS_TOKEN_SECRET'], message: 'must be replaced with a strong secret' });
   }
   if (environment.NODE_ENV === 'production') {
+    if (productionMongoTargetIsUnsafe(environment.MONGODB_URI)) {
+      context.addIssue({ code: 'custom', path: ['MONGODB_URI'], message: 'must not target a local or test database in production' });
+    }
     if (!environment.JOB_SEARCH_MODE) context.addIssue({ code: 'custom', path: ['JOB_SEARCH_MODE'], message: 'must explicitly be basic or atlas in production' });
     if (environment.JOB_SEARCH_MODE === 'atlas' && !environment.ATLAS_SEARCH_INDEX) context.addIssue({ code: 'custom', path: ['ATLAS_SEARCH_INDEX'], message: 'is required when Atlas Search is enabled' });
     for (const field of ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'] as const) {

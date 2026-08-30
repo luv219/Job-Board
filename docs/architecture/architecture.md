@@ -144,6 +144,14 @@ The modular monolith uses request IDs, structured stdout logs, explicit health s
 
 The `/metrics` endpoint is intended for an internal monitoring network or infrastructure access policy. It exports default Node process metrics, HTTP request counters/histograms, and bounded email, resume, search, and application-operation metrics. It does not export raw URLs, user IDs, email addresses, IP addresses, request IDs, Job/Application IDs, or search terms as labels. This repository intentionally does not run Prometheus, Grafana, Sentry, OpenTelemetry, distributed tracing, or a log database.
 
+## Release boundary
+
+The API and web are independently packaged as minimal production container images. Their Node and Nginx runtime bases are pinned to reviewed digests, build stages use the lockfile, and final stages contain only the runtime artifacts while running as non-root users. OCI labels identify title, version, source repository, and source revision. API runtime revision metadata is supplied by `APP_REVISION` and is visible only through bounded startup logging and the internal metrics build-info label—never through a runtime Git command.
+
+Deployment is intentionally provider-neutral. There is no Production Compose file because no hosting/networking topology has been selected, and there is no deployment workflow because no protected target or authorized credentials exist. CI validates immutable-source quality and production-image builds with no Production secrets. Any future deploy job must consume those immutable artifacts, use a protected environment and serialized target-specific concurrency, and run read-only smoke checks after readiness.
+
+Production disables Mongoose `autoIndex`; index rollout is an explicit operations responsibility. Atlas Search indexes must likewise be provisioned outside application startup. The release process never drops/seeds a database, recreates indexes, deletes storage, sends test email, or changes provider/DNS/TLS configuration. See the operational [deployment guide](../operations/deployment.md).
+
 At larger scale, an external error-reporting provider or OpenTelemetry can be evaluated after privacy/redaction requirements, deployment topology, and a cross-service tracing need are established. No such integration is required by the current single API process.
 
 ## Deferred seams

@@ -50,6 +50,12 @@ docker compose up --build
 
 Compose runs `web`, `api`, and an internal-only `mongodb` service. MongoDB data is retained in the `mongodb_data` named volume and is deliberately not exposed to the host.
 
+## Production release foundation
+
+The repository provides separate non-root production images for the API and web client. They use pinned runtime base-image digests and deterministic `npm ci` stages, exclude every `.env*` file from the Docker context, and carry OCI title/version/revision/source labels. The web production build requires the public `VITE_API_BASE_URL` build argument; API secrets are supplied only at runtime.
+
+No cloud provider or Production deployment workflow is configured, so no deployment is performed from CI. Pull requests and `main` run read-only quality and production-image build gates. Use full commit-SHA image tags as the release and rollback identity—never `latest` alone. See the [deployment guide](docs/operations/deployment.md) and [release checklist](docs/operations/release-checklist.md) before wiring an authorized provider.
+
 ## Scripts
 
 | Script | Purpose |
@@ -74,6 +80,8 @@ docker compose exec -T -e RUN_MONGODB_TESTS=1 -e MONGODB_URI=mongodb://mongodb:2
 ```
 
 Browser E2E is intentionally deferred until a dedicated isolated web/API test runtime can inject the existing fake storage provider without introducing test-only production endpoints. Coverage is informational and intentionally has no arbitrary threshold.
+
+CI uses an isolated disposable MongoDB service and a database name ending in `_test` for integration tests. It never receives Production MongoDB, SMTP, storage, or Atlas Search credentials.
 
 ## Health endpoints
 

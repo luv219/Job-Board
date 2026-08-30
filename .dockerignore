@@ -4,6 +4,6 @@ node_modules
 **/node_modules
 **/dist
 coverage
-.env
-.env.*.local
+.env*
 npm-debug.log*
+.DS_Store

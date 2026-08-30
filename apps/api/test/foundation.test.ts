@@ -72,6 +72,18 @@ describe('configuration and test database safety', () => {
     expect(() => assertSafeTestDatabase('development', 'mongodb://localhost:27017/job_board_test')).toThrow();
     expect(() => assertSafeTestDatabase('test', 'mongodb://localhost:27017/job_board')).toThrow();
   });
+
+  it('rejects local and test MongoDB targets in production', () => {
+    const production = {
+      NODE_ENV: 'production', WEB_ORIGIN: 'https://web.invalid', ACCESS_TOKEN_SECRET: 'production-validation-secret-that-is-longer-than-thirty-two-characters',
+      JOB_SEARCH_MODE: 'basic', CLOUDINARY_CLOUD_NAME: 'production-storage', CLOUDINARY_API_KEY: '123456', CLOUDINARY_API_SECRET: 'production-storage-secret',
+      EMAIL_PROVIDER: 'smtp', EMAIL_FROM: 'no-reply@web.invalid', SMTP_HOST: 'smtp.invalid', SMTP_PORT: '587', SMTP_USER: 'production-user', SMTP_PASSWORD: 'production-password',
+    };
+    expect(() => loadEnvironment({ ...production, MONGODB_URI: 'mongodb://localhost:27017/job_board' })).toThrow('MONGODB_URI');
+    expect(() => loadEnvironment({ ...production, MONGODB_URI: 'mongodb://[::1]:27017/job_board' })).toThrow('MONGODB_URI');
+    expect(() => loadEnvironment({ ...production, MONGODB_URI: 'mongodb://mongo.invalid:27017/job_board_test' })).toThrow('MONGODB_URI');
+    expect(() => loadEnvironment({ ...production, MONGODB_URI: 'mongodb://mongo.invalid:27017/job_board' })).not.toThrow();
+  });
 });
 
 describe('production security middleware', () => {

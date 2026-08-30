@@ -38,6 +38,10 @@ Successful startup writes `api_started` with safe version, revision, environment
 
 On `SIGTERM` or `SIGINT`, logs show `graceful_shutdown_started`, then either `graceful_shutdown_completed` or a bounded `graceful_shutdown_timed_out`/`graceful_shutdown_failed`. The API stops accepting HTTP connections, disconnects MongoDB, and allows up to 10 seconds before forced connection closure. Use readiness for traffic removal and liveness only for process restart decisions.
 
+The production API image health check is intentionally aligned with readiness, not liveness. Its final runtime is the unprivileged `node` user; the web runtime is the unprivileged `nginx` user. Logs go to container stdout/stderr, not application log files. Configure the platform's startup grace period to allow the initial MongoDB connection, and configure `TRUST_PROXY_HOPS` only after verifying the exact proxy chain.
+
+For release, revision, smoke, and rollback procedures, follow the [deployment guide](deployment.md) and [release checklist](release-checklist.md). Production deployment automation is not configured in this repository: no command here may mutate Production data, Atlas Search indexes, Cloudinary, SMTP, DNS, or TLS.
+
 ## Suggested external panels and alerts
 
 Monitor request rate, 5xx rate, p95/p99 HTTP latency, process memory/event-loop metrics, readiness, database disconnects, email/storage/search failures, and rate-limit events through structured logs. Alert on sustained 5xx growth, repeated readiness failure, database disconnects, high latency, provider-failure spikes, repeated `429` responses, or sustained memory pressure. Thresholds are deployment-specific and should be calibrated from observed traffic; this repository does not include Grafana, a Prometheus server, PagerDuty, or tracing infrastructure.
