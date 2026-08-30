@@ -26,6 +26,7 @@ import { applicationRevision } from './config/env.js';
 import { createOperationalMetrics, type OperationalMetrics } from './lib/metrics.js';
 import { requestObservability } from './middleware/observability.js';
 import { createMetricsRouter } from './routes/metrics.js';
+import { createCompanyTeamRouter } from './routes/company-team.js';
 
 interface AppOptions {
   environment: Environment;
@@ -64,6 +65,7 @@ export function createApp({ environment, logger, isDatabaseReady, resumeStorageP
   app.use('/metrics', createMetricsRouter(operationalMetrics));
   app.use('/api/v1/auth', privateNoStore, createAuthRouter(environment, notifications));
   app.use('/api/v1', createProfileRouter(environment));
+  app.use('/api/v1', createCompanyTeamRouter(environment, notifications));
   app.use('/api/v1', createResumeRouter(environment, operationalMetrics, resumeStorageProvider));
   app.use('/api/v1', createApplicationRouter(environment, notifications, operationalMetrics, resumeStorageProvider));
   app.use('/api/v1', createEmployerApplicationRouter(environment, notifications, operationalMetrics, resumeStorageProvider));

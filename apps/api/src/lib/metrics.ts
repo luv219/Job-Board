@@ -2,7 +2,7 @@ import { collectDefaultMetrics, Counter, Histogram, Registry } from '@prometheus
 
 export type MetricResult = 'success' | 'failure';
 export type SearchMode = 'basic' | 'atlas';
-type EmailMetricType = 'EMAIL_VERIFICATION' | 'PASSWORD_RESET' | 'APPLICATION_SUBMITTED' | 'NEW_APPLICATION' | 'APPLICATION_STATUS_CHANGED';
+type EmailMetricType = 'EMAIL_VERIFICATION' | 'PASSWORD_RESET' | 'APPLICATION_SUBMITTED' | 'NEW_APPLICATION' | 'APPLICATION_STATUS_CHANGED' | 'COMPANY_INVITATION';
 const supportedHttpMethods = new Set(['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']);
 
 export interface OperationalMetrics {

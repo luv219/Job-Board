@@ -10,6 +10,8 @@ import { applicantProfileResponse, companyPublicResponse, employerProfileRespons
 import { AppError } from '../lib/app-error.js';
 import { slugify } from '../profiles/slug.js';
 import { privateNoStore } from '../middleware/security.js';
+import { CompanyMember } from '../models/company-member.js';
+import { resolveEmployerCompanyAccess, requireCompanyOwner } from '../company/access.js';
 
 function duplicate(error: unknown): boolean { return typeof error === 'object' && error !== null && 'code' in error && error.code === 11000; }
 
@@ -27,12 +29,15 @@ export function createProfileRouter(environment: Environment): Router {
   router.patch('/employer/profile', ...employerOnly, validate('body', employerPatchSchema), async (request, response, next) => { try { const profile = await EmployerProfile.findOneAndUpdate({ userId: request.principal!.id }, { $set: request.body }, { new: true, runValidators: true }).lean(); if (!profile) throw new AppError({ statusCode: 404, code: 'PROFILE_NOT_FOUND', message: 'Employer profile not found' }); response.json({ profile: employerProfileResponse(profile) }); } catch (error) { next(error); } });
 
   router.post('/employer/company', ...employerOnly, validate('body', companyCreateSchema), async (request, response, next) => { try {
+    if (await CompanyMember.exists({ userId: request.principal!.id })) throw new AppError({ statusCode: 409, code: 'EMPLOYER_ALREADY_ASSOCIATED_WITH_COMPANY', message: 'Leave the current company before creating another' });
     const input = request.body as { name: string }; let company;
     for (let suffix = 1; suffix <= 100; suffix += 1) { const slug = `${slugify(input.name)}${suffix === 1 ? '' : `-${suffix}`}`; try { company = await Company.create({ ...(request.body as object), ownerUserId: request.principal!.id, slug }); break; } catch (error) { if (!duplicate(error)) throw error; const own = await Company.exists({ ownerUserId: request.principal!.id }); if (own) throw new AppError({ statusCode: 409, code: 'COMPANY_ALREADY_EXISTS', message: 'Company already exists' }); } }
-    if (!company) throw new AppError({ statusCode: 409, code: 'CONFLICT', message: 'Unable to create a unique company slug' }); response.status(201).json({ company: companyPublicResponse(company) });
+    if (!company) throw new AppError({ statusCode: 409, code: 'CONFLICT', message: 'Unable to create a unique company slug' });
+    await CompanyMember.create({ companyId: company._id, userId: request.principal!.id, role: 'OWNER' });
+    response.status(201).json({ company: companyPublicResponse(company) });
   } catch (error) { next(error); } });
-  router.get('/employer/company', ...employerOnly, async (request, response, next) => { try { const company = await Company.findOne({ ownerUserId: request.principal!.id }).lean(); if (!company) throw new AppError({ statusCode: 404, code: 'COMPANY_NOT_FOUND', message: 'Company not found' }); response.json({ company: companyPublicResponse(company) }); } catch (error) { next(error); } });
-  router.patch('/employer/company', ...employerOnly, validate('body', companyPatchSchema), async (request, response, next) => { try { const company = await Company.findOneAndUpdate({ ownerUserId: request.principal!.id }, { $set: request.body }, { new: true, runValidators: true }).lean(); if (!company) throw new AppError({ statusCode: 404, code: 'COMPANY_NOT_FOUND', message: 'Company not found' }); response.json({ company: companyPublicResponse(company) }); } catch (error) { next(error); } });
+  router.get('/employer/company', ...employerOnly, async (request, response, next) => { try { const access = await resolveEmployerCompanyAccess(request.principal!.id); response.json({ company: { ...companyPublicResponse(access.company), currentUserCompanyRole: access.companyRole } }); } catch (error) { next(error); } });
+  router.patch('/employer/company', ...employerOnly, validate('body', companyPatchSchema), async (request, response, next) => { try { const access = await requireCompanyOwner(request.principal!.id); const company = await Company.findByIdAndUpdate(access.company._id, { $set: request.body }, { new: true, runValidators: true }).lean(); if (!company) throw new AppError({ statusCode: 404, code: 'COMPANY_NOT_FOUND', message: 'Company not found' }); response.json({ company: companyPublicResponse(company) }); } catch (error) { next(error); } });
   router.get('/companies/:slug', async (request, response, next) => { try { const company = await Company.findOne({ slug: request.params.slug }).lean(); if (!company) throw new AppError({ statusCode: 404, code: 'COMPANY_NOT_FOUND', message: 'Company not found' }); response.json({ company: companyPublicResponse(company) }); } catch (error) { next(error); } });
   return router;
 }

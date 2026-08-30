@@ -2,7 +2,7 @@ import type { Logger } from 'pino';
 import type mongoose from 'mongoose';
 import { Application, applicantVisibleApplicationStatuses, type ApplicantVisibleApplicationStatus, type ApplicationRecord } from '../models/application.js';
 import { ApplicantProfile } from '../models/applicant-profile.js';
-import { Company } from '../models/company.js';
+import { resolveEmployerCompanyAccess } from '../company/access.js';
 import { Job } from '../models/job.js';
 import { AppError } from '../lib/app-error.js';
 import type { ResumeStorageProvider } from '../resume/storage/resume-storage-provider.js';
@@ -103,9 +103,7 @@ export class EmployerApplicationService {
   }
 
   private async ownedCompany(employerUserId: string) {
-    const company = await Company.findOne({ ownerUserId: employerUserId }).lean();
-    if (!company) throw new AppError({ statusCode: 409, code: 'COMPANY_REQUIRED', message: 'Create a company before reviewing applications' });
-    return company;
+    return (await resolveEmployerCompanyAccess(employerUserId)).company;
   }
 
   private async ownedApplication(employerUserId: string, applicationId: string) {

@@ -30,3 +30,7 @@ export function buildApplicationStatusChangedEmail(input: { to: string; jobTitle
   const job = escapeHtml(input.jobTitle); const company = escapeHtml(input.companyName); const status = escapeHtml(input.status.replaceAll('_', ' ').toLowerCase());
   return email('APPLICATION_STATUS_CHANGED', input.to, 'Application status updated', `Your application for ${input.jobTitle} at ${input.companyName} is now ${input.status}. View it: ${input.link}`, `Your application for <strong>${job}</strong> at ${company} is now <strong>${status}</strong>. <a href="${escapeHtml(input.link)}">View applications</a>.`);
 }
+export function buildCompanyInvitationEmail(input: { to: string; companyName: string; inviterName: string; link: string; expiresAt: Date }): EmailMessage {
+  const company = escapeHtml(input.companyName); const inviter = escapeHtml(input.inviterName);
+  return email('COMPANY_INVITATION', input.to, `Invitation to join ${input.companyName}`, `${input.inviterName} invited you to recruit for ${input.companyName}. Accept before ${input.expiresAt.toISOString()}: ${input.link}`, `${inviter} invited you to join <strong>${company}</strong> as a recruiter. <a href="${escapeHtml(input.link)}">Accept invitation</a>.`);
+}

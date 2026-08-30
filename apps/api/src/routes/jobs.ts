@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { NextFunction, Request, Response } from 'express';
 import type { Environment } from '../config/env.js';
 import { Company } from '../models/company.js';
+import { resolveEmployerCompanyAccess } from '../company/access.js';
 import { Job, type JobRecord } from '../models/job.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { validate } from '../validation/validate.js';
@@ -28,11 +29,7 @@ function requireSlug(value: unknown): string {
   return value;
 }
 
-async function findOwnedCompany(userId: string) {
-  const company = await Company.findOne({ ownerUserId: userId }).lean();
-  if (!company) throw new AppError({ statusCode: 409, code: 'COMPANY_REQUIRED', message: 'Create a company before managing jobs' });
-  return company;
-}
+async function findOwnedCompany(userId: string) { return (await resolveEmployerCompanyAccess(userId)).company; }
 
 function contentUpdate(input: JobPatchInput): Partial<JobRecord> {
   const update: Partial<JobRecord> = {};

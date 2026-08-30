@@ -3,7 +3,7 @@ import type { Environment } from '../config/env.js';
 import type { EmailMessage } from './email-provider.js';
 import type { EmailProvider } from './email-provider.js';
 import type { OperationalMetrics } from '../lib/metrics.js';
-import { buildApplicationStatusChangedEmail, buildApplicationSubmittedEmail, buildNewApplicationEmail, buildPasswordResetEmail, buildVerificationEmail } from './email-templates.js';
+import { buildApplicationStatusChangedEmail, buildApplicationSubmittedEmail, buildNewApplicationEmail, buildPasswordResetEmail, buildVerificationEmail, buildCompanyInvitationEmail } from './email-templates.js';
 
 function appLink(origin: string, path: string): string { return `${origin.replace(/\/$/, '')}${path}`; }
 
@@ -32,6 +32,12 @@ export class EmailNotificationService {
 
   public async sendApplicationStatusChanged(input: { applicantEmail: string; applicantUserId: string; jobTitle: string; companyName: string; status: string }): Promise<void> {
     await this.sendBestEffort(buildApplicationStatusChangedEmail({ to: input.applicantEmail, jobTitle: input.jobTitle, companyName: input.companyName, status: input.status, link: appLink(this.environment.WEB_ORIGIN, '/applicant/applications') }), 'APPLICATION_STATUS_CHANGED', input.applicantUserId);
+  }
+  public async sendCompanyInvitation(input: { email: string; companyName: string; inviterName: string; token: string; expiresAt: Date; invitationId: string }): Promise<void> {
+    const link = `${appLink(this.environment.WEB_ORIGIN, '/employer/invitations/accept')}?token=${encodeURIComponent(input.token)}`;
+    const message = buildCompanyInvitationEmail({ to: input.email, companyName: input.companyName, inviterName: input.inviterName, link, expiresAt: input.expiresAt });
+    try { await this.provider.send(message); this.metrics.recordEmail(message.type, 'success'); this.logger.info({ event: 'company_invitation_email_sent', invitationId: input.invitationId }, 'Company invitation email sent'); }
+    catch (error) { this.metrics.recordEmail(message.type, 'failure'); this.logger.warn({ event: 'company_invitation_email_failed', invitationId: input.invitationId, errorName: error instanceof Error ? error.name : 'UnknownError' }, 'Company invitation email failed'); throw new Error('Company invitation email delivery failed'); }
   }
 
   private async sendBestEffort(message: EmailMessage, type: string, userId: string): Promise<void> {

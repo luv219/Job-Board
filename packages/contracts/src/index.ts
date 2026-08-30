@@ -54,6 +54,9 @@ export const apiErrorCodeSchema = z.enum([
   'APPLICATION_STATUS_CONFLICT',
   'EMAIL_DELIVERY_FAILED',
   'TOKEN_INVALID_OR_EXPIRED',
+  'EMPLOYER_ALREADY_ASSOCIATED_WITH_COMPANY',
+  'COMPANY_INVITATION_INVALID',
+  'COMPANY_TEAM_LIMIT_REACHED',
 ]);
 
 export const apiErrorResponseSchema = z.object({
@@ -69,6 +72,8 @@ export type ApiErrorResponse = z.infer<typeof apiErrorResponseSchema>;
 
 export const userRoleSchema = z.enum(['APPLICANT', 'EMPLOYER']);
 export type UserRole = z.infer<typeof userRoleSchema>;
+export const companyRoleSchema = z.enum(['OWNER', 'RECRUITER']);
+export type CompanyRole = z.infer<typeof companyRoleSchema>;
 
 export const publicUserSchema = z.object({
   id: z.string(),
