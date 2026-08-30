@@ -52,6 +52,12 @@ Templates are centralized, plain-text plus HTML, and escape all interpolated App
 
 If measured email volume, latency, or delivery guarantees exceed this synchronous design, evolve deliberately to `business write → transactional outbox → worker → provider`. A database-backed outbox or managed queue/BullMQ can then be evaluated with explicit idempotency and operational ownership; none is needed yet. SMS, push, marketing, newsletters, Job alerts, and in-app notification center work remain out of scope.
 
+## Frontend application
+
+The React/Vite client is a route-based SPA with public, Applicant, Employer, and account-recovery areas. React Router performs presentation-level guards while API authorization remains authoritative. TanStack Query owns server data with focused invalidation after mutations; a small authentication context keeps only the current access token and public account record in memory. Refresh uses the existing HttpOnly cookie and one shared refresh promise, so simultaneous expired requests do not create a refresh storm. Logout clears the entire in-memory query cache to prevent data from one account appearing in another session.
+
+The browser receives only `VITE_API_BASE_URL`, a public API origin. It never persists refresh tokens, access tokens, verification/reset tokens, private data, or signed resume URLs in browser storage. Verification/reset tokens are consumed directly from the URL and then removed. Signed resume URLs are opened immediately and never cached. Public search state is URL-backed; responsive semantic layouts, labels, keyboard focus, textual status badges, and safe React text rendering form the initial accessibility/security baseline. SSR, analytics, UI frameworks, offline persistence, advanced search, queues, and notification-center work remain intentionally deferred.
+
 ## Profile and company foundation
 
 Authentication identity remains separate from business data. `ApplicantProfile` and `EmployerProfile` are one-to-zero-or-one records owned by their matching User; self routes are always scoped to the authenticated principal. `Company` is separately owned by one Employer and has both a unique owner constraint and a server-generated, stable unique slug. Public Company responses intentionally exclude ownership and employer personal data.

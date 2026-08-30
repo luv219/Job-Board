@@ -1,6 +1,6 @@
 # Job Board
 
-A production-oriented TypeScript MERN modular monolith for a niche job board. Phase 10 adds transactional email delivery, secure account verification and password recovery, and best-effort application notifications.
+A production-oriented TypeScript MERN modular monolith for a niche job board. Phase 11 adds the responsive React client for the existing Applicant, Employer, public job-discovery, account-recovery, and application-management APIs.
 
 ## Architecture
 
@@ -187,8 +187,16 @@ docker/           Application Dockerfiles
 .github/workflows/ CI quality gate
 ```
 
-## Phase 10 status and intentionally deferred work
+## Phase 11 status and intentionally deferred work
 
 Implemented: workspace foundation, API lifecycle separation, strict configuration, MongoDB lifecycle handling, standardized health/error responses, request validation and query-safety primitives, security middleware, request correlation, bounded shutdown/timeouts, Docker health checks, isolated test-database guardrails, password authentication, rotating refresh sessions, RBAC primitives, private profiles/companies, Job discovery, private resume management, Applicant Job submission/history/withdrawal, Employer-owned Application review, Saved Jobs/dashboard data, SMTP-backed transactional email, verification/reset delivery, and best-effort Application notifications.
 
 Deferred: frontend dashboard UI, saved-search alerts, resume parsing, company teams, caching, queues/outbox workers, recommendations, analytics, SMS/push, payments, advanced Atlas Search capabilities, and all other product features. See [the architecture document](docs/architecture/architecture.md) for operational conventions and scale-up seams.
+
+## Frontend development
+
+The Vite client uses React Router for public, Applicant, Employer, and account-recovery routes. TanStack Query owns API data and React context holds only the in-memory short-lived access token and authenticated user. Refresh credentials remain in the API-managed HttpOnly cookie; no token, reset link, or signed resume URL is stored in browser storage.
+
+Set `VITE_API_BASE_URL` to the API origin (for example `http://localhost:3000`). Start both services with `npm run dev`, or use `docker compose up`. The web workspace runs focused component/API-client tests with `npm run test -w @job-board/web`; root `npm run test` runs every workspace test.
+
+Implemented frontend routes include public home/jobs/company pages; login/register/verification/reset flows; Applicant dashboard/profile/resume/saved-jobs/application views; and Employer profile/company/job/application management. Search filters and pagination are kept in the public URL. The client provides responsive navigation, semantic forms, loading/empty/error states, route guards, and role-aware navigation.
