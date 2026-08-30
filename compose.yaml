@@ -39,6 +39,8 @@ services:
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      JOB_SEARCH_MODE: ${JOB_SEARCH_MODE:-basic}
+      ATLAS_SEARCH_INDEX: ${ATLAS_SEARCH_INDEX:-}
     ports: ["3000:3000"]
     command: sh -c "npm ci && npm run dev -w @job-board/api"
     volumes:

@@ -32,11 +32,15 @@ const environmentSchema = z.object({
   SMTP_USER: optionalValue,
   SMTP_PASSWORD: optionalValue,
   SMTP_SECURE: z.preprocess((value) => typeof value === 'string' && value.trim() === '' ? undefined : value, z.enum(['true', 'false']).transform((value) => value === 'true').optional()),
+  JOB_SEARCH_MODE: z.enum(['basic', 'atlas']).optional(),
+  ATLAS_SEARCH_INDEX: optionalValue,
 }).superRefine((environment, context) => {
   if (/replace|change-me|placeholder|example/i.test(environment.ACCESS_TOKEN_SECRET)) {
     context.addIssue({ code: 'custom', path: ['ACCESS_TOKEN_SECRET'], message: 'must be replaced with a strong secret' });
   }
   if (environment.NODE_ENV === 'production') {
+    if (!environment.JOB_SEARCH_MODE) context.addIssue({ code: 'custom', path: ['JOB_SEARCH_MODE'], message: 'must explicitly be basic or atlas in production' });
+    if (environment.JOB_SEARCH_MODE === 'atlas' && !environment.ATLAS_SEARCH_INDEX) context.addIssue({ code: 'custom', path: ['ATLAS_SEARCH_INDEX'], message: 'is required when Atlas Search is enabled' });
     for (const field of ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'] as const) {
       if (!environment[field] || /replace|change-me|placeholder|example/i.test(environment[field])) {
         context.addIssue({ code: 'custom', path: [field], message: 'is required for private resume storage in production' });
@@ -52,7 +56,7 @@ const environmentSchema = z.object({
   }
 });
 
-export type Environment = z.infer<typeof environmentSchema>;
+export type Environment = Omit<z.infer<typeof environmentSchema>, 'JOB_SEARCH_MODE' | 'ATLAS_SEARCH_INDEX'> & { JOB_SEARCH_MODE?: 'basic' | 'atlas' | undefined; ATLAS_SEARCH_INDEX?: string | undefined };
 
 export function loadEnvironment(source: NodeJS.ProcessEnv = process.env): Environment {
   const result = environmentSchema.safeParse(source);

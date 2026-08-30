@@ -5,14 +5,14 @@ import { Company } from '../models/company.js';
 import { Job, type JobRecord } from '../models/job.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { validate } from '../validation/validate.js';
-import { employerJobListSchema, jobCreateSchema, jobPatchSchema, publicJobSearchSchema, type JobCreateInput, type JobPatchInput, type PublicJobSearchQuery } from '../jobs/validation.js';
+import { employerJobListSchema, jobCreateSchema, jobPatchSchema, publicJobAutocompleteSchema, publicJobSearchSchema, type JobCreateInput, type JobPatchInput, type PublicJobAutocompleteQuery, type PublicJobSearchQuery } from '../jobs/validation.js';
 import { canEditJob, canTransition, createJobSlug, isPublishable, type JobAction } from '../jobs/lifecycle.js';
 import { employerJobResponse, publicJobResponse } from '../jobs/serializers.js';
 import { AppError } from '../lib/app-error.js';
 import { isValidObjectId } from '../lib/object-id.js';
 import { parseSort } from '../lib/sorting.js';
 import { publicActiveJobFilter } from '../jobs/public-eligibility.js';
-import { searchPublicJobs } from '../jobs/search.js';
+import { autocompletePublicJobs, searchPublicJobs } from '../jobs/search.js';
 
 function duplicate(error: unknown): boolean { return typeof error === 'object' && error !== null && 'code' in error && error.code === 11000; }
 
@@ -140,8 +140,13 @@ export function createJobRouter(environment: Environment): Router {
 
   router.get('/jobs', validate('query', publicJobSearchSchema), async (_request, response, next) => {
     try {
-      response.json(await searchPublicJobs(response.locals.validatedQuery as PublicJobSearchQuery));
+      response.json(await searchPublicJobs(response.locals.validatedQuery as PublicJobSearchQuery, environment));
     } catch (error) { next(error); }
+  });
+
+  router.get('/jobs/autocomplete', validate('query', publicJobAutocompleteSchema), async (_request, response, next) => {
+    try { response.json(await autocompletePublicJobs(response.locals.validatedQuery as PublicJobAutocompleteQuery)); }
+    catch (error) { next(error); }
   });
 
   router.get('/jobs/:slug', async (request, response, next) => {

@@ -1,69 +1,28 @@
 import type mongoose from 'mongoose';
+import type { PipelineStage } from 'mongoose';
 import { Company, type CompanyRecord } from '../models/company.js';
 import { Job, type JobRecord } from '../models/job.js';
+import type { Environment } from '../config/env.js';
 import { publicActiveJobFilter } from './public-eligibility.js';
-import type { PublicJobSearchQuery } from './validation.js';
+import type { PublicJobAutocompleteQuery, PublicJobSearchQuery } from './validation.js';
+import { buildAtlasSearchPipeline } from './atlas-search.js';
 
 type WithId<T> = T & { _id: { toString(): string } };
 const publicCompanyFields = '_id name slug industry companySize location';
-
 function escapeRegex(value: string): string { return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function exactText(value: string): RegExp { return new RegExp(`^${escapeRegex(value)}$`, 'i'); }
-function postedAfter(postedWithin: NonNullable<PublicJobSearchQuery['postedWithin']>, now: Date): Date {
-  const milliseconds = { '24h': 86_400_000, '7d': 604_800_000, '30d': 2_592_000_000 }[postedWithin];
-  return new Date(now.getTime() - milliseconds);
-}
-
-function buildPublicJobFilter(query: PublicJobSearchQuery, now: Date, companyId?: JobRecord['companyId']): mongoose.QueryFilter<JobRecord> {
+function postedAfter(value: NonNullable<PublicJobSearchQuery['postedWithin']>, now: Date): Date { return new Date(now.getTime() - ({ '24h': 86_400_000, '7d': 604_800_000, '30d': 2_592_000_000 }[value])); }
+export function buildPublicJobFilter(query: PublicJobSearchQuery, now: Date, companyId?: JobRecord['companyId']): mongoose.QueryFilter<JobRecord> {
   const conditions: mongoose.QueryFilter<JobRecord>[] = [publicActiveJobFilter(now)];
   if (query.q) conditions.push({ $text: { $search: query.q } });
-  if (query.city) conditions.push({ 'location.city': exactText(query.city) });
-  if (query.state) conditions.push({ 'location.state': exactText(query.state) });
-  if (query.country) conditions.push({ 'location.country': exactText(query.country) });
-  if (query.workMode) conditions.push({ workMode: query.workMode });
-  if (query.employmentType) conditions.push({ employmentType: query.employmentType });
-  if (query.skills) conditions.push({ skills: { $in: query.skills.map(exactText) } });
-  if (companyId) conditions.push({ companyId });
-  if (query.postedWithin) conditions.push({ publishedAt: { $gte: postedAfter(query.postedWithin, now) } });
-  if (query.salaryMin !== undefined || query.salaryMax !== undefined) {
-    if (!query.currency || !query.salaryPeriod) throw new Error('Validated salary search requires currency and period');
-    conditions.push({ 'salary.visible': true, 'salary.currency': query.currency, 'salary.period': query.salaryPeriod });
-    if (query.salaryMin !== undefined) conditions.push({ $or: [{ 'salary.max': { $gte: query.salaryMin } }, { 'salary.max': { $exists: false } }] });
-    if (query.salaryMax !== undefined) conditions.push({ $or: [{ 'salary.min': { $lte: query.salaryMax } }, { 'salary.min': { $exists: false } }] });
-  }
+  if (query.city) conditions.push({ 'location.city': exactText(query.city) }); if (query.state) conditions.push({ 'location.state': exactText(query.state) }); if (query.country) conditions.push({ 'location.country': exactText(query.country) }); if (query.workMode) conditions.push({ workMode: query.workMode }); if (query.employmentType) conditions.push({ employmentType: query.employmentType }); if (query.skills) conditions.push({ skills: { $in: query.skills.map(exactText) } }); if (companyId) conditions.push({ companyId }); if (query.postedWithin) conditions.push({ publishedAt: { $gte: postedAfter(query.postedWithin, now) } });
+  if (query.salaryMin !== undefined || query.salaryMax !== undefined) { if (!query.currency || !query.salaryPeriod) throw new Error('Validated salary search requires currency and period'); conditions.push({ 'salary.visible': true, 'salary.currency': query.currency, 'salary.period': query.salaryPeriod }); if (query.salaryMin !== undefined) conditions.push({ $or: [{ 'salary.max': { $gte: query.salaryMin } }, { 'salary.max': { $exists: false } }] }); if (query.salaryMax !== undefined) conditions.push({ $or: [{ 'salary.min': { $lte: query.salaryMax } }, { 'salary.min': { $exists: false } }] }); }
   return { $and: conditions };
 }
-
-function toPublicCard(job: WithId<JobRecord>, company: WithId<CompanyRecord>) {
-  return {
-    id: job._id.toString(), slug: job.slug, title: job.title, skills: job.skills, location: job.location,
-    workMode: job.workMode, employmentType: job.employmentType, ...(job.salary?.visible ? { salary: job.salary } : {}),
-    ...(job.applicationDeadline ? { applicationDeadline: job.applicationDeadline.toISOString() } : {}), publishedAt: job.publishedAt!.toISOString(),
-    company: { id: company._id.toString(), name: company.name, slug: company.slug, ...(company.industry ? { industry: company.industry } : {}), ...(company.companySize ? { companySize: company.companySize } : {}), location: company.location },
-  };
-}
-
-export async function searchPublicJobs(query: PublicJobSearchQuery, now = new Date()) {
-  const company = query.company ? await Company.findOne({ slug: query.company }).select('_id').lean() : undefined;
-  if (query.company && !company) return { items: [], pagination: { page: query.page, limit: query.limit, total: 0, totalPages: 0 } };
-  const filter = buildPublicJobFilter(query, now, company?._id as JobRecord['companyId'] | undefined);
-  const defaultSort = query.q ? 'relevance' : 'newest';
-  const sort = query.sort ?? defaultSort;
-  const sortDefinition: Record<string, 1 | -1 | { $meta: 'textScore' }> = sort === 'oldest'
-    ? { publishedAt: 1 }
-    : sort === 'relevance'
-      ? { score: { $meta: 'textScore' }, publishedAt: -1 }
-      : { publishedAt: -1 };
-  const [jobs, total] = await Promise.all([
-    Job.find(filter).select('companyId slug title skills location workMode employmentType salary applicationDeadline publishedAt').sort(sortDefinition).skip((query.page - 1) * query.limit).limit(query.limit).lean(),
-    Job.countDocuments(filter),
-  ]);
-  const companyIds = [...new Set(jobs.map((job) => job.companyId.toString()))];
-  const companies = await Company.find({ _id: { $in: companyIds } }).select(publicCompanyFields).lean();
-  const companiesById = new Map(companies.map((item) => [item._id.toString(), item]));
-  const items = jobs.flatMap((job) => {
-    const jobCompany = companiesById.get(job.companyId.toString());
-    return jobCompany ? [toPublicCard(job, jobCompany)] : [];
-  });
-  return { items, pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit) } };
-}
+function toCard(job: WithId<JobRecord>, company: WithId<CompanyRecord>) { return { id: job._id.toString(), slug: job.slug, title: job.title, skills: job.skills, location: job.location, workMode: job.workMode, employmentType: job.employmentType, ...(job.salary?.visible ? { salary: job.salary } : {}), ...(job.applicationDeadline ? { applicationDeadline: job.applicationDeadline.toISOString() } : {}), publishedAt: job.publishedAt!.toISOString(), company: { id: company._id.toString(), name: company.name, slug: company.slug, ...(company.industry ? { industry: company.industry } : {}), ...(company.companySize ? { companySize: company.companySize } : {}), location: company.location } }; }
+async function getFacets(filter: mongoose.QueryFilter<JobRecord>) { const [workMode, employmentType] = await Promise.all([Job.aggregate<{ _id: string; count: number }>([{ $match: filter }, { $group: { _id: '$workMode', count: { $sum: 1 } } }]), Job.aggregate<{ _id: string; count: number }>([{ $match: filter }, { $group: { _id: '$employmentType', count: { $sum: 1 } } }])]); return { workMode: workMode.map(({ _id, count }) => ({ value: _id, count })), employmentType: employmentType.map(({ _id, count }) => ({ value: _id, count })) }; }
+async function companiesFor(jobs: WithId<JobRecord>[]) { const companies = await Company.find({ _id: { $in: [...new Set(jobs.map((job) => job.companyId.toString()))] } }).select(publicCompanyFields).lean(); return new Map(companies.map((company) => [company._id.toString(), company])); }
+async function basicSearch(query: PublicJobSearchQuery, now: Date) { const company = query.company ? await Company.findOne({ slug: query.company }).select('_id').lean() : undefined; if (query.company && !company) return { items: [], pagination: { page: query.page, limit: query.limit, total: 0, totalPages: 0 }, facets: { workMode: [], employmentType: [] } }; const filter = buildPublicJobFilter(query, now, company?._id as JobRecord['companyId'] | undefined); const sort = query.sort ?? (query.q ? 'relevance' : 'newest'); const sortDefinition: Record<string, 1 | -1 | { $meta: 'textScore' }> = sort === 'oldest' ? { publishedAt: 1 } : sort === 'relevance' ? { score: { $meta: 'textScore' }, publishedAt: -1 } : { publishedAt: -1 }; const [jobs, total, facets] = await Promise.all([Job.find(filter).select('companyId slug title skills location workMode employmentType salary applicationDeadline publishedAt').sort(sortDefinition).skip((query.page - 1) * query.limit).limit(query.limit).lean(), Job.countDocuments(filter), getFacets(filter)]); const byId = await companiesFor(jobs); return { items: jobs.flatMap((job) => { const company = byId.get(job.companyId.toString()); return company ? [toCard(job, company)] : []; }), pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit) }, facets }; }
+async function atlasSearch(query: PublicJobSearchQuery, environment: Environment, now: Date) { if (!environment.ATLAS_SEARCH_INDEX) throw new Error('Atlas Search index configuration is missing'); const company = query.company ? await Company.findOne({ slug: query.company }).select('_id').lean() : undefined; if (query.company && !company) return { items: [], pagination: { page: query.page, limit: query.limit, total: 0, totalPages: 0 }, facets: { workMode: [], employmentType: [] } }; const structuredQuery = { ...query, q: undefined }; const basePipeline = [...buildAtlasSearchPipeline(query, environment.ATLAS_SEARCH_INDEX, now), { $match: buildPublicJobFilter(structuredQuery, now, company?._id as JobRecord['companyId'] | undefined) }]; const jobsPipeline = [...basePipeline, { $sort: query.q ? { score: { $meta: 'searchScore' }, publishedAt: -1 } : { publishedAt: -1 } }, { $skip: (query.page - 1) * query.limit }, { $limit: query.limit }, { $project: { companyId: 1, slug: 1, title: 1, skills: 1, location: 1, workMode: 1, employmentType: 1, salary: 1, applicationDeadline: 1, publishedAt: 1 } }]; const [jobs, totals, facetResults] = await Promise.all([Job.aggregate<WithId<JobRecord>>(jobsPipeline as unknown as PipelineStage[]), Job.aggregate<{ total: number }>([...basePipeline, { $count: 'total' }] as unknown as PipelineStage[]), Job.aggregate<{ workMode: Array<{ _id: string; count: number }>; employmentType: Array<{ _id: string; count: number }> }>([...basePipeline, { $facet: { workMode: [{ $group: { _id: '$workMode', count: { $sum: 1 } } }], employmentType: [{ $group: { _id: '$employmentType', count: { $sum: 1 } } }] } }] as unknown as PipelineStage[])]); const total = totals[0]?.total ?? 0; const facet = facetResults[0] ?? { workMode: [], employmentType: [] }; const byId = await companiesFor(jobs); return { items: jobs.flatMap((job) => { const company = byId.get(job.companyId.toString()); return company ? [toCard(job, company)] : []; }), pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit) }, facets: { workMode: facet.workMode.map(({ _id, count }) => ({ value: _id, count })), employmentType: facet.employmentType.map(({ _id, count }) => ({ value: _id, count })) } }; }
+export async function searchPublicJobs(query: PublicJobSearchQuery, environment: Environment, now = new Date()) { return environment.JOB_SEARCH_MODE === 'atlas' ? atlasSearch(query, environment, now) : basicSearch(query, now); }
+export async function autocompletePublicJobs(query: PublicJobAutocompleteQuery, now = new Date()) { const prefix = new RegExp(`^${escapeRegex(query.q)}`, 'i'); const jobs = await Job.find({ $and: [publicActiveJobFilter(now), { $or: [{ title: prefix }, { skills: prefix }] }] }).select('title skills publishedAt').sort({ publishedAt: -1 }).limit(20).lean(); const seen = new Set<string>(); const suggestions: Array<{ type: 'JOB_TITLE' | 'SKILL'; value: string }> = []; for (const job of jobs) for (const item of [{ type: 'JOB_TITLE' as const, value: job.title }, ...job.skills.filter((skill) => prefix.test(skill)).map((value) => ({ type: 'SKILL' as const, value }))]) { const key = `${item.type}:${item.value.toLowerCase()}`; if (!seen.has(key) && suggestions.length < 8) { seen.add(key); suggestions.push(item); } } return { suggestions }; }

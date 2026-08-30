@@ -11,7 +11,7 @@ import { Job } from '../src/models/job.js';
 
 const enabled = process.env.RUN_MONGODB_TESTS === '1';
 const environment: Environment = {
-  NODE_ENV: 'test', API_HOST: '127.0.0.1', API_PORT: 3000, MONGODB_URI: 'mongodb://127.0.0.1:27017/job_board_phase5_test',
+  NODE_ENV: 'test', API_HOST: '127.0.0.1', API_PORT: 3000, MONGODB_URI: process.env.MONGODB_URI ?? 'mongodb://127.0.0.1:27017/job_board_phase5_test',
   WEB_ORIGIN: 'http://localhost:5173', LOG_LEVEL: 'silent', REQUEST_BODY_LIMIT: 102_400,
   ACCESS_TOKEN_SECRET: 'test-secret-that-is-longer-than-thirty-two-characters', ACCESS_TOKEN_ISSUER: 'job-board-api',
   ACCESS_TOKEN_AUDIENCE: 'job-board-web', ACCESS_TOKEN_TTL_SECONDS: 600, REFRESH_TOKEN_TTL_DAYS: 7,
@@ -91,5 +91,14 @@ describeIntegration('public Job discovery HTTP integration', () => {
     await request(app).get('/api/v1/jobs?q[$ne]=backend').expect(400);
     await request(app).get('/api/v1/jobs?workMode[$ne]=REMOTE').expect(400);
     await request(app).get('/api/v1/jobs?unknown=value').expect(400);
+  });
+
+  it('returns bounded, public-only autocomplete suggestions and facet counts', async () => {
+    const response = await request(app).get('/api/v1/jobs/autocomplete?q=ba').expect(200);
+    expect(response.body.suggestions).toContainEqual({ type: 'JOB_TITLE', value: 'Backend Node Engineer' });
+    expect(JSON.stringify(response.body.suggestions)).not.toContain('Draft Node Role');
+    await request(app).get('/api/v1/jobs/autocomplete?q=b').expect(400);
+    const search = await request(app).get('/api/v1/jobs?workMode=REMOTE').expect(200);
+    expect(search.body.facets.workMode).toContainEqual({ value: 'REMOTE', count: 2 });
   });
 });

@@ -73,7 +73,9 @@ export const publicJobSearchSchema = z.object({
   if (hasSalaryRange && !query.salaryPeriod) context.addIssue({ code: 'custom', path: ['salaryPeriod'], message: 'Salary period is required with salary filters' });
   if (query.sort === 'relevance' && !query.q) context.addIssue({ code: 'custom', path: ['sort'], message: 'Relevance sorting requires q' });
 });
+export const publicJobAutocompleteSchema = z.object({ q: queryText(100).min(2).max(100) }).strict();
 
 export type JobCreateInput = z.infer<typeof jobCreateSchema>;
 export type JobPatchInput = z.infer<typeof jobPatchSchema>;
 export type PublicJobSearchQuery = z.infer<typeof publicJobSearchSchema>;
+export type PublicJobAutocompleteQuery = z.infer<typeof publicJobAutocompleteSchema>;

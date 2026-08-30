@@ -1,0 +1,15 @@
+{
+  "mappings": {
+    "dynamic": false,
+    "fields": {
+      "title": { "type": "string", "analyzer": "lucene.standard" },
+      "skills": { "type": "string", "analyzer": "lucene.standard" },
+      "requirements": { "type": "string", "analyzer": "lucene.standard" },
+      "description": { "type": "string", "analyzer": "lucene.standard" },
+      "status": { "type": "token" },
+      "workMode": { "type": "token" },
+      "employmentType": { "type": "token" },
+      "location": { "type": "document", "fields": { "city": { "type": "token" }, "state": { "type": "token" }, "country": { "type": "token" } } }
+    }
+  }
+}

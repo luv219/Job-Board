@@ -188,7 +188,9 @@ export const publicJobListItemSchema = z.object({
   publishedAt: z.string(), company: publicJobCompanySchema,
 });
 export const paginationMetadataSchema = z.object({ page: z.number().int().positive(), limit: z.number().int().positive(), total: z.number().int().nonnegative(), totalPages: z.number().int().nonnegative() });
-export const publicJobSearchResponseSchema = z.object({ items: z.array(publicJobListItemSchema), pagination: paginationMetadataSchema });
+export const searchFacetSchema = z.object({ value: z.string(), count: z.number().int().nonnegative() });
+export const publicJobSearchResponseSchema = z.object({ items: z.array(publicJobListItemSchema), pagination: paginationMetadataSchema, facets: z.object({ workMode: z.array(searchFacetSchema), employmentType: z.array(searchFacetSchema) }) });
+export const jobAutocompleteResponseSchema = z.object({ suggestions: z.array(z.object({ type: z.enum(['JOB_TITLE', 'SKILL']), value: z.string() })) });
 export const publicJobSearchQuerySchema = z.object({
   q: z.string().optional(), city: z.string().optional(), state: z.string().optional(), country: z.string().optional(),
   workMode: workModeSchema.optional(), employmentType: employmentTypeSchema.optional(), skills: z.string().optional(),
@@ -198,4 +200,5 @@ export const publicJobSearchQuerySchema = z.object({
 });
 export type PublicJobListItem = z.infer<typeof publicJobListItemSchema>;
 export type PublicJobSearchResponse = z.infer<typeof publicJobSearchResponseSchema>;
+export type JobAutocompleteResponse = z.infer<typeof jobAutocompleteResponseSchema>;
 export type PublicJobSearchQuery = z.infer<typeof publicJobSearchQuerySchema>;

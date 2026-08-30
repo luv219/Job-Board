@@ -187,11 +187,17 @@ docker/           Application Dockerfiles
 .github/workflows/ CI quality gate
 ```
 
-## Phase 11 status and intentionally deferred work
+## Phase 12 search and discovery
+
+`GET /api/v1/jobs` now returns the existing paginated Job cards plus `facets.workMode` and `facets.employmentType`; facet counts use the same eligible, filtered search universe. `GET /api/v1/jobs/autocomplete?q=...` is public, requires at least two characters, and returns at most eight eligible Job-title or skill suggestions.
+
+Search uses validated `JOB_SEARCH_MODE`. `basic` (the Docker/local default) uses the existing weighted MongoDB text index with deterministic escaped filters. `atlas` uses the Atlas Search query builder, with title/skills/requirements/description boosts and conservative fuzzy matching. Atlas index creation is a manual deployment step using [the checked-in mapping](docs/architecture/atlas-job-search-index.json); the application never attempts to create or alter an Atlas index. Production must explicitly choose a mode and must set `ATLAS_SEARCH_INDEX` when choosing `atlas`.
+
+## Phase 12 status and intentionally deferred work
 
 Implemented: workspace foundation, API lifecycle separation, strict configuration, MongoDB lifecycle handling, standardized health/error responses, request validation and query-safety primitives, security middleware, request correlation, bounded shutdown/timeouts, Docker health checks, isolated test-database guardrails, password authentication, rotating refresh sessions, RBAC primitives, private profiles/companies, Job discovery, private resume management, Applicant Job submission/history/withdrawal, Employer-owned Application review, Saved Jobs/dashboard data, SMTP-backed transactional email, verification/reset delivery, and best-effort Application notifications.
 
-Deferred: frontend dashboard UI, saved-search alerts, resume parsing, company teams, caching, queues/outbox workers, recommendations, analytics, SMS/push, payments, advanced Atlas Search capabilities, and all other product features. See [the architecture document](docs/architecture/architecture.md) for operational conventions and scale-up seams.
+Deferred: frontend dashboard UI, saved-search alerts, resume parsing, company teams, caching, queues/outbox workers, recommendations, analytics, SMS/push, payments, Atlas synonym/highlight/analytics capabilities, and all other product features. See [the architecture document](docs/architecture/architecture.md) for operational conventions and scale-up seams.
 
 ## Frontend development
 
