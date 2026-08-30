@@ -60,6 +60,20 @@ Compose runs `web`, `api`, and an internal-only `mongodb` service. MongoDB data 
 | `npm run lint` | Lint every workspace |
 | `npm run typecheck` | Strict TypeScript verification |
 | `npm run test` | Run API contract tests |
+| `npm run test:api` / `npm run test:web` | Run one workspace's focused suite |
+| `npm run test:coverage` | Generate informational Vitest V8 coverage reports |
+
+## Testing
+
+Unit/API-boundary tests run without external services. MongoDB integration tests are deliberately skipped unless `RUN_MONGODB_TESTS=1` is set and the URI names a database ending in `_test`; the guard rejects non-test environments before destructive cleanup. Integration suites use fake storage and email providers, and standard CI does not require Cloudinary, SMTP, Atlas Search, or external internet access.
+
+With Compose MongoDB running, PowerShell users can run the full API integration suite from the API container:
+
+```powershell
+docker compose exec -T -e RUN_MONGODB_TESTS=1 -e MONGODB_URI=mongodb://mongodb:27017/job_board_phase14_test api npm run test -w @job-board/api
+```
+
+Browser E2E is intentionally deferred until a dedicated isolated web/API test runtime can inject the existing fake storage provider without introducing test-only production endpoints. Coverage is informational and intentionally has no arbitrary threshold.
 
 ## Health endpoints
 

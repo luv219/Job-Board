@@ -18,7 +18,7 @@ import { FakeResumeStorageProvider } from './helpers/fake-resume-storage.js';
 const enabled = process.env.RUN_MONGODB_TESTS === '1';
 const describeIntegration = enabled ? describe : describe.skip;
 const environment: Environment = {
-  NODE_ENV: 'test', API_HOST: '127.0.0.1', API_PORT: 3000, MONGODB_URI: 'mongodb://127.0.0.1:27017/job_board_phase10_test',
+  NODE_ENV: 'test', API_HOST: '127.0.0.1', API_PORT: 3000, MONGODB_URI: process.env.MONGODB_URI ?? 'mongodb://127.0.0.1:27017/job_board_phase10_test',
   WEB_ORIGIN: 'http://localhost:5173', LOG_LEVEL: 'silent', REQUEST_BODY_LIMIT: 102_400,
   ACCESS_TOKEN_SECRET: 'test-secret-that-is-longer-than-thirty-two-characters', ACCESS_TOKEN_ISSUER: 'job-board-api',
   ACCESS_TOKEN_AUDIENCE: 'job-board-web', ACCESS_TOKEN_TTL_SECONDS: 600, REFRESH_TOKEN_TTL_DAYS: 7,

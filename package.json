@@ -3,8 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24.0.0", "npm": ">=11.0.0" },
-  "workspaces": ["apps/*", "packages/*"],
+  "engines": {
+    "node": ">=24.0.0",
+    "npm": ">=11.0.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "concurrently -n web,api -c cyan,green \"npm run dev -w @job-board/web\" \"npm run dev -w @job-board/api\"",
     "dev:web": "npm run dev -w @job-board/web",
@@ -12,10 +18,14 @@
     "build": "npm run build -w @job-board/contracts && npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run build -w @job-board/contracts && npm run typecheck --workspaces --if-present",
-    "test": "npm run build -w @job-board/contracts && npm run test --workspaces --if-present"
+    "test": "npm run build -w @job-board/contracts && npm run test --workspaces --if-present",
+    "test:api": "npm run test -w @job-board/api",
+    "test:web": "npm run test -w @job-board/web",
+    "test:coverage": "npm run test:coverage -w @job-board/api && npm run test:coverage -w @job-board/web"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
+    "@vitest/coverage-v8": "^4.1.11",
     "concurrently": "9.2.4",
     "eslint": "9.39.5",
     "eslint-plugin-react-hooks": "7.0.1",
