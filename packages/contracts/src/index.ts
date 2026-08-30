@@ -43,6 +43,13 @@ export const apiErrorCodeSchema = z.enum([
   'RESUME_UNSUPPORTED_TYPE',
   'RESUME_TOO_LARGE',
   'RESUME_STORAGE_ERROR',
+  'APPLICATION_ALREADY_EXISTS',
+  'APPLICATION_NOT_FOUND',
+  'APPLICATION_NOT_WITHDRAWABLE',
+  'JOB_NOT_ACCEPTING_APPLICATIONS',
+  'APPLICANT_PROFILE_REQUIRED',
+  'RESUME_REQUIRED',
+  'RESUME_SNAPSHOT_ERROR',
 ]);
 
 export const apiErrorResponseSchema = z.object({
@@ -116,6 +123,19 @@ export type EmploymentType = z.infer<typeof employmentTypeSchema>;
 export type WorkMode = z.infer<typeof workModeSchema>;
 export type Salary = z.infer<typeof salarySchema>;
 export type JobPublic = z.infer<typeof jobPublicSchema>;
+
+export const applicationStatusSchema = z.enum(['SUBMITTED', 'WITHDRAWN']);
+export type ApplicationStatus = z.infer<typeof applicationStatusSchema>;
+export const applicationResumeSnapshotSchema = resumeMetadataSchema.extend({ capturedAt: z.string() });
+export const applicantApplicationJobSchema = z.object({
+  id: z.string(), slug: z.string(), title: z.string(), workMode: workModeSchema, employmentType: employmentTypeSchema,
+  company: z.object({ id: z.string(), name: z.string(), slug: z.string() }),
+}).nullable();
+export const applicantApplicationSchema = z.object({
+  id: z.string(), status: applicationStatusSchema, appliedAt: z.string(), withdrawnAt: z.string().optional(),
+  coverLetter: z.string().optional(), resumeSnapshot: applicationResumeSnapshotSchema, job: applicantApplicationJobSchema,
+});
+export type ApplicantApplication = z.infer<typeof applicantApplicationSchema>;
 
 export const publicJobListItemSchema = z.object({
   id: z.string(), slug: z.string(), title: z.string(), skills: z.array(z.string()), location: locationSchema,

@@ -4,6 +4,7 @@ import type { Environment } from '../../config/env.js';
 import type { ResumeStorageProvider, StoredResume } from './resume-storage-provider.js';
 
 const RESUME_FOLDER = 'job-board/resumes';
+const APPLICATION_RESUME_FOLDER = 'job-board/application-resumes';
 
 export class CloudinaryResumeStorageProvider implements ResumeStorageProvider {
   public constructor(environment: Pick<Environment, 'CLOUDINARY_CLOUD_NAME' | 'CLOUDINARY_API_KEY' | 'CLOUDINARY_API_SECRET'>) {
@@ -34,6 +35,17 @@ export class CloudinaryResumeStorageProvider implements ResumeStorageProvider {
         resolve({ public_id: result.public_id, bytes: result.bytes });
       });
       stream.end(input.buffer);
+    });
+    return { provider: 'cloudinary', assetId: upload.public_id, sizeBytes: upload.bytes };
+  }
+
+  public async createApplicationSnapshot(input: { sourceAssetId: string; mimeType: 'application/pdf' }): Promise<StoredResume> {
+    const sourceUrl = cloudinary.utils.private_download_url(input.sourceAssetId, 'pdf', {
+      resource_type: 'raw', type: 'private', expires_at: Math.floor((Date.now() + 60_000) / 1_000), attachment: true,
+    });
+    const upload = await cloudinary.uploader.upload(sourceUrl, {
+      resource_type: 'raw', type: 'private', folder: APPLICATION_RESUME_FOLDER, public_id: randomUUID(), format: 'pdf',
+      overwrite: false, use_filename: false, unique_filename: false,
     });
     return { provider: 'cloudinary', assetId: upload.public_id, sizeBytes: upload.bytes };
   }

@@ -13,6 +13,7 @@ import { createAuthRouter } from './routes/auth.js';
 import { createProfileRouter } from './routes/profiles.js';
 import { createJobRouter } from './routes/jobs.js';
 import { createResumeRouter } from './routes/resumes.js';
+import { createApplicationRouter } from './routes/applications.js';
 import type { ResumeStorageProvider } from './resume/storage/resume-storage-provider.js';
 
 interface AppOptions {
@@ -37,6 +38,7 @@ export function createApp({ environment, logger, isDatabaseReady, resumeStorageP
   app.use('/api/v1/auth', createAuthRouter(environment));
   app.use('/api/v1', createProfileRouter(environment));
   app.use('/api/v1', createResumeRouter(environment, resumeStorageProvider));
+  app.use('/api/v1', createApplicationRouter(environment, resumeStorageProvider));
   app.use('/api/v1', createJobRouter(environment));
   configureRoutes?.(app);
   app.use(notFoundHandler);

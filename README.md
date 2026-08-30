@@ -1,6 +1,6 @@
 # Job Board
 
-A production-oriented TypeScript MERN modular monolith for a niche job board. Phase 6 adds private, Applicant-owned resume storage and lifecycle controls; Job Applications remain deliberately deferred.
+A production-oriented TypeScript MERN modular monolith for a niche job board. Phase 7 adds Applicant Job submission, immutable private resume snapshots, and Applicant Application history.
 
 ## Architecture
 
@@ -124,6 +124,19 @@ Applicants may maintain exactly one private PDF resume after creating their Appl
 
 Files are signature-checked PDFs, stored as Cloudinary `raw` private assets, and never stored in MongoDB. MongoDB contains only non-secret metadata and an opaque provider asset ID; it never contains file bytes, permanent/public URLs, signed URLs, or provider credentials. The access route sends `Cache-Control: private, no-store`. In development without Cloudinary configuration the API remains usable but resume operations return a safe storage-not-configured response; test coverage injects an in-memory fake provider.
 
+## Applicant Application API
+
+Applicants can submit exactly one Application per eligible Published Job after creating a profile and uploading a current resume:
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/v1/jobs/:jobId/applications` | Submit an Application with an optional plain-text cover letter (5,000 characters maximum) |
+| `GET` | `/api/v1/applicant/applications` | List only the authenticated Applicant’s Applications (`status`, `page`, `limit`) |
+| `GET` | `/api/v1/applicant/applications/:applicationId` | Retrieve one owned Application |
+| `POST` | `/api/v1/applicant/applications/:applicationId/withdraw` | Withdraw a `SUBMITTED` Application |
+
+Submission accepts only currently public/active Published Jobs. It atomically reserves the unique `(jobId, applicantUserId)` pair before creating a distinct private resume snapshot. Replacing or deleting the Applicant’s current resume cannot alter an existing Application snapshot. The only Applicant-visible lifecycle is `SUBMITTED → WITHDRAWN`; withdrawal retains the Application and its snapshot, and reapplication is intentionally disallowed. Application snapshot download and all Employer review/resume-access routes are deferred.
+
 ## Repository structure
 
 ```text
@@ -134,8 +147,8 @@ docker/           Application Dockerfiles
 .github/workflows/ CI quality gate
 ```
 
-## Phase 6 status and intentionally deferred work
+## Phase 7 status and intentionally deferred work
 
-Implemented: workspace foundation, API lifecycle separation, strict configuration, MongoDB lifecycle handling, standardized health/error responses, request validation and query-safety primitives, security middleware, request correlation, bounded shutdown/timeouts, Docker health checks, isolated test-database guardrails, password authentication, rotating refresh sessions, RBAC primitives, private profiles/companies, Job discovery, and private resume upload/replacement/access/removal behind a focused Cloudinary storage boundary.
+Implemented: workspace foundation, API lifecycle separation, strict configuration, MongoDB lifecycle handling, standardized health/error responses, request validation and query-safety primitives, security middleware, request correlation, bounded shutdown/timeouts, Docker health checks, isolated test-database guardrails, password authentication, rotating refresh sessions, RBAC primitives, private profiles/companies, Job discovery, private resume management, and Applicant Job submission/history/withdrawal with private immutable resume snapshots.
 
-Deferred: Job Applications, saved jobs, resume parsing, email, dashboards, company teams, caching, queues, analytics, payments, advanced Atlas Search capabilities, and all other product features. See [the architecture document](docs/architecture/architecture.md) for operational conventions and scale-up seams.
+Deferred: Employer Application review and resume access, saved jobs, resume parsing, email, dashboards, company teams, caching, queues, analytics, payments, advanced Atlas Search capabilities, and all other product features. See [the architecture document](docs/architecture/architecture.md) for operational conventions and scale-up seams.

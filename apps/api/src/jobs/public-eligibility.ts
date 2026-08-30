@@ -10,3 +10,7 @@ export function publicActiveJobFilter(now: Date): mongoose.QueryFilter<JobRecord
     ],
   };
 }
+
+export function isJobOpenForApplications(job: Pick<JobRecord, 'status' | 'applicationDeadline'>, now: Date): boolean {
+  return job.status === 'PUBLISHED' && (!job.applicationDeadline || job.applicationDeadline >= now);
+}

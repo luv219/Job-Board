@@ -33,6 +33,7 @@ services:
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
     ports: ["3000:3000"]
+    command: sh -c "npm ci && npm run dev -w @job-board/api"
     volumes:
       - .:/app
       - api_node_modules:/app/node_modules

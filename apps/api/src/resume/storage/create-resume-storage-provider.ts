@@ -9,6 +9,7 @@ class UnavailableResumeStorageProvider implements ResumeStorageProvider {
   }
 
   public async uploadResume(): Promise<never> { return this.unavailable(); }
+  public async createApplicationSnapshot(): Promise<never> { return this.unavailable(); }
   public async deleteResume(): Promise<never> { return this.unavailable(); }
   public async createAccessUrl(): Promise<never> { return this.unavailable(); }
 }

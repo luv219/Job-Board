@@ -2,10 +2,14 @@ import type { ResumeStorageProvider, StoredResume } from '../../src/resume/stora
 
 export class FakeResumeStorageProvider implements ResumeStorageProvider {
   public readonly uploaded: string[] = [];
+  public readonly snapshots: string[] = [];
+  public readonly snapshotSources: string[] = [];
   public readonly deleted: string[] = [];
+  public readonly deleteAttempts: string[] = [];
   public failUpload = false;
   public failAccess = false;
   public failDelete = false;
+  public failSnapshot = false;
 
   public async uploadResume(input: { buffer: Buffer; mimeType: 'application/pdf' }): Promise<StoredResume> {
     if (this.failUpload) throw new Error('simulated storage failure');
@@ -14,7 +18,16 @@ export class FakeResumeStorageProvider implements ResumeStorageProvider {
     return { provider: 'cloudinary', assetId, sizeBytes: input.buffer.length };
   }
 
+  public async createApplicationSnapshot(input: { sourceAssetId: string; mimeType: 'application/pdf' }): Promise<StoredResume> {
+    if (this.failSnapshot) throw new Error('simulated snapshot failure');
+    const assetId = `private/application-resume-${this.snapshots.length + 1}`;
+    this.snapshotSources.push(input.sourceAssetId);
+    this.snapshots.push(assetId);
+    return { provider: 'cloudinary', assetId, sizeBytes: 1_024 };
+  }
+
   public async deleteResume(assetId: string): Promise<void> {
+    this.deleteAttempts.push(assetId);
     if (this.failDelete) throw new Error('simulated delete failure');
     this.deleted.push(assetId);
   }
