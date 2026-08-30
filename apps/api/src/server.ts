@@ -1,57 +1,35 @@
 import http from 'node:http';
 import { createApp } from './app.js';
-import { loadEnvironment } from './config/env.js';
+import { applicationRevision, loadEnvironment } from './config/env.js';
 import { createLogger } from './lib/logger.js';
-import { connectMongo, disconnectMongo, isMongoReady } from './lib/mongodb.js';
+import { checkMongoReadiness, connectMongo, disconnectMongo } from './lib/mongodb.js';
+import { createGracefulShutdown } from './lib/graceful-shutdown.js';
 
 async function main(): Promise<void> {
   const environment = loadEnvironment();
   const logger = createLogger(environment);
   await connectMongo(environment.MONGODB_URI, logger, environment.NODE_ENV !== 'production');
 
-  const app = createApp({ environment, logger, isDatabaseReady: isMongoReady });
+  const app = createApp({ environment, logger, isDatabaseReady: checkMongoReadiness });
   const server = http.createServer(app);
   server.requestTimeout = 30_000;
   server.headersTimeout = 35_000;
   server.keepAliveTimeout = 5_000;
-  let shuttingDown = false;
-
-  const shutdown = async (reason: string, exitCode: number): Promise<void> => {
-    if (shuttingDown) return;
-    shuttingDown = true;
-    logger.info({ reason }, 'Shutdown started');
-    const timeout = setTimeout(() => {
-      logger.error('Shutdown timed out');
-      server.closeAllConnections();
-      process.exit(1);
-    }, 10_000);
-    timeout.unref();
-
-    try {
-      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-      await disconnectMongo();
-      clearTimeout(timeout);
-      logger.info('Shutdown complete');
-      process.exit(exitCode);
-    } catch (error) {
-      logger.error({ err: error }, 'Shutdown failed');
-      process.exit(1);
-    }
-  };
+  const shutdown = createGracefulShutdown({ server, disconnectDatabase: disconnectMongo, logger, timeoutMs: 10_000, finish: (exitCode) => process.exit(exitCode) });
 
   process.once('SIGINT', () => void shutdown('SIGINT', 0));
   process.once('SIGTERM', () => void shutdown('SIGTERM', 0));
   process.once('uncaughtException', (error) => {
-    logger.fatal({ err: error }, 'Uncaught exception');
+    logger.fatal({ event: 'uncaught_exception', errorName: error.name, ...(environment.NODE_ENV !== 'production' ? { errorStack: error.stack } : {}) }, 'Uncaught exception');
     void shutdown('uncaughtException', 1);
   });
   process.once('unhandledRejection', (reason) => {
-    logger.fatal({ err: reason }, 'Unhandled rejection');
+    logger.fatal({ event: 'unhandled_rejection', errorName: reason instanceof Error ? reason.name : 'UnknownRejection', ...(environment.NODE_ENV !== 'production' && reason instanceof Error ? { errorStack: reason.stack } : {}) }, 'Unhandled rejection');
     void shutdown('unhandledRejection', 1);
   });
 
   server.listen(environment.API_PORT, environment.API_HOST, () => {
-    logger.info({ host: environment.API_HOST, port: environment.API_PORT }, 'API listening');
+    logger.info({ event: 'api_started', environment: environment.NODE_ENV, nodeVersion: process.version, applicationVersion: environment.APP_VERSION ?? '0.1.0', revision: applicationRevision(environment), port: environment.API_PORT, searchMode: environment.JOB_SEARCH_MODE ?? 'basic' }, 'API listening');
   });
 }
 

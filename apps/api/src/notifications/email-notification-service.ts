@@ -2,12 +2,13 @@ import type { Logger } from 'pino';
 import type { Environment } from '../config/env.js';
 import type { EmailMessage } from './email-provider.js';
 import type { EmailProvider } from './email-provider.js';
+import type { OperationalMetrics } from '../lib/metrics.js';
 import { buildApplicationStatusChangedEmail, buildApplicationSubmittedEmail, buildNewApplicationEmail, buildPasswordResetEmail, buildVerificationEmail } from './email-templates.js';
 
 function appLink(origin: string, path: string): string { return `${origin.replace(/\/$/, '')}${path}`; }
 
 export class EmailNotificationService {
-  public constructor(private readonly provider: EmailProvider, private readonly environment: Environment, private readonly logger: Logger) {}
+  public constructor(private readonly provider: EmailProvider, private readonly environment: Environment, private readonly logger: Logger, private readonly metrics: OperationalMetrics) {}
 
   public verificationMessage(email: string, token: string): EmailMessage {
     return buildVerificationEmail({ to: email, link: `${appLink(this.environment.WEB_ORIGIN, '/verify-email')}?token=${encodeURIComponent(token)}` });
@@ -18,8 +19,8 @@ export class EmailNotificationService {
   }
 
   public async sendSecurity(message: EmailMessage, userId: string): Promise<void> {
-    try { await this.provider.send(message); this.logger.info({ event: 'security_email_sent', type: message.type, userId }, 'Security email sent'); }
-    catch (error) { this.logger.warn({ event: 'security_email_failed', type: message.type, userId, errorName: error instanceof Error ? error.name : 'UnknownError' }, 'Security email delivery failed'); throw error; }
+    try { await this.provider.send(message); this.metrics.recordEmail(message.type, 'success'); this.logger.info({ event: 'security_email_sent', type: message.type, userId }, 'Security email sent'); }
+    catch (error) { this.metrics.recordEmail(message.type, 'failure'); this.logger.warn({ event: 'security_email_failed', type: message.type, userId, errorName: error instanceof Error ? error.name : 'UnknownError' }, 'Security email delivery failed'); throw error; }
   }
 
   public async sendApplicationSubmitted(input: { applicantEmail: string; employerEmail: string; applicantUserId: string; employerUserId: string; applicantName: string; jobTitle: string; companyName: string; jobId: string }): Promise<void> {
@@ -34,7 +35,7 @@ export class EmailNotificationService {
   }
 
   private async sendBestEffort(message: EmailMessage, type: string, userId: string): Promise<void> {
-    try { await this.provider.send(message); this.logger.info({ event: 'business_email_sent', type, userId }, 'Business email sent'); }
-    catch (error) { this.logger.warn({ event: 'business_email_failed', type, userId, errorName: error instanceof Error ? error.name : 'UnknownError' }, 'Business email delivery failed'); }
+    try { await this.provider.send(message); this.metrics.recordEmail(message.type, 'success'); this.logger.info({ event: 'business_email_sent', type, userId }, 'Business email sent'); }
+    catch (error) { this.metrics.recordEmail(message.type, 'failure'); this.logger.warn({ event: 'business_email_failed', type, userId, errorName: error instanceof Error ? error.name : 'UnknownError' }, 'Business email delivery failed'); }
   }
 }

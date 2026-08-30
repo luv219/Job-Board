@@ -8,6 +8,7 @@ import { ResumeService, type ResumeRecord } from '../resume/resume-service.js';
 import { createResumeStorageProvider } from '../resume/storage/create-resume-storage-provider.js';
 import { MAX_RESUME_BYTES, RESUME_FIELD_NAME, validateResumeFile } from '../resume/validation.js';
 import { privateNoStore } from '../middleware/security.js';
+import type { OperationalMetrics } from '../lib/metrics.js';
 
 function metadataResponse(resume: ResumeRecord) {
   return { originalFilename: resume.originalFilename, mimeType: resume.mimeType, sizeBytes: resume.sizeBytes, uploadedAt: resume.uploadedAt.toISOString() };
@@ -38,7 +39,7 @@ function resumeUpload(request: Request, response: Response, next: NextFunction):
   });
 }
 
-export function createResumeRouter(environment: Environment, storage = createResumeStorageProvider(environment)): Router {
+export function createResumeRouter(environment: Environment, metrics: OperationalMetrics, storage = createResumeStorageProvider(environment)): Router {
   const router = Router();
   const applicantOnly = [privateNoStore, requireAuth(environment), requireRole('APPLICANT')];
   const uploadLimit = rateLimit({
@@ -54,25 +55,25 @@ export function createResumeRouter(environment: Environment, storage = createRes
     try {
       if (!request.file) throw new AppError({ statusCode: 400, code: 'RESUME_INVALID_FILE', message: 'Attach one PDF file in the resume field' });
       const file = await validateResumeFile(request.file);
-      const resume = await new ResumeService(storage, request.log).upload(request.principal!.id, { buffer: request.file.buffer, filename: file.filename, mimeType: file.mimeType });
+      const resume = await new ResumeService(storage, request.log, metrics).upload(request.principal!.id, { buffer: request.file.buffer, filename: file.filename, mimeType: file.mimeType });
       response.json({ resume: metadataResponse(resume) });
     } catch (error) { next(error); }
   });
 
   router.get('/applicant/resume', ...applicantOnly, async (request, response, next) => {
-    try { response.json({ resume: metadataResponse(await new ResumeService(storage, request.log).getMetadata(request.principal!.id)) }); }
+    try { response.json({ resume: metadataResponse(await new ResumeService(storage, request.log, metrics).getMetadata(request.principal!.id)) }); }
     catch (error) { next(error); }
   });
 
   router.post('/applicant/resume/access', ...applicantOnly, async (request, response, next) => {
     try {
-      const access = await new ResumeService(storage, request.log).createAccessUrl(request.principal!.id);
+      const access = await new ResumeService(storage, request.log, metrics).createAccessUrl(request.principal!.id);
       response.set('Cache-Control', 'private, no-store').json({ accessUrl: access.url, expiresAt: access.expiresAt.toISOString() });
     } catch (error) { next(error); }
   });
 
   router.delete('/applicant/resume', ...applicantOnly, async (request, response, next) => {
-    try { await new ResumeService(storage, request.log).remove(request.principal!.id); response.sendStatus(204); }
+    try { await new ResumeService(storage, request.log, metrics).remove(request.principal!.id); response.sendStatus(204); }
     catch (error) { next(error); }
   });
 

@@ -11,6 +11,7 @@ import type { ResumeStorageProvider } from '../resume/storage/resume-storage-pro
 import { canApplicantWithdraw } from './lifecycle.js';
 import { User } from '../models/user.js';
 import type { EmailNotificationService } from '../notifications/email-notification-service.js';
+import type { OperationalMetrics } from '../lib/metrics.js';
 
 type PersistedApplication = ApplicationRecord & { _id: { toString(): string } };
 type JobSummaryRecord = { _id: { toString(): string }; companyId: { toString(): string }; slug: string; title: string; workMode: string; employmentType: string };
@@ -23,7 +24,7 @@ function safeSnapshot(snapshot: NonNullable<ApplicationRecord['resumeSnapshot']>
 }
 
 export class ApplicationService {
-  public constructor(private readonly storage: ResumeStorageProvider, private readonly logger: Logger, private readonly notifications: EmailNotificationService) {}
+  public constructor(private readonly storage: ResumeStorageProvider, private readonly logger: Logger, private readonly notifications: EmailNotificationService, private readonly metrics: OperationalMetrics) {}
 
   public async submit(applicantUserId: string, jobId: string, input: SubmitApplicationInput) {
     const profile = await ApplicantProfile.findOne({ userId: applicantUserId }).lean();
@@ -53,8 +54,8 @@ export class ApplicationService {
     }
 
     let snapshot;
-    try { snapshot = await this.storage.createApplicationSnapshot({ sourceAssetId: profile.resume.assetId, mimeType: profile.resume.mimeType }); }
-    catch { await this.removeReservation(reservation._id.toString()); throw new AppError({ statusCode: 503, code: 'RESUME_SNAPSHOT_ERROR', message: 'Resume snapshot storage is temporarily unavailable' }); }
+    try { snapshot = await this.storage.createApplicationSnapshot({ sourceAssetId: profile.resume.assetId, mimeType: profile.resume.mimeType }); this.metrics.recordResume('snapshot', 'success'); }
+    catch { this.metrics.recordResume('snapshot', 'failure'); await this.removeReservation(reservation._id.toString()); throw new AppError({ statusCode: 503, code: 'RESUME_SNAPSHOT_ERROR', message: 'Resume snapshot storage is temporarily unavailable' }); }
 
     const resumeSnapshot: NonNullable<ApplicationRecord['resumeSnapshot']> = {
       provider: snapshot.provider, assetId: snapshot.assetId, originalFilename: profile.resume.originalFilename,

@@ -16,6 +16,12 @@ const environmentSchema = z.object({
   MONGODB_URI: z.string().trim().url().startsWith('mongodb'),
   WEB_ORIGIN: z.string().trim().url(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  SLOW_REQUEST_THRESHOLD_MS: z.coerce.number().int().min(100).max(60_000).default(1_000),
+  APP_VERSION: optionalValue,
+  APP_REVISION: optionalValue,
+  GIT_SHA: optionalValue,
+  VERCEL_GIT_COMMIT_SHA: optionalValue,
+  BUILD_ID: optionalValue,
   REQUEST_BODY_LIMIT: z.coerce.number().int().positive().max(1_048_576).default(102_400),
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(2).default(0),
   ACCESS_TOKEN_SECRET: z.string().trim().min(32),
@@ -57,7 +63,21 @@ const environmentSchema = z.object({
   }
 });
 
-export type Environment = Omit<z.infer<typeof environmentSchema>, 'JOB_SEARCH_MODE' | 'ATLAS_SEARCH_INDEX' | 'TRUST_PROXY_HOPS'> & { JOB_SEARCH_MODE?: 'basic' | 'atlas' | undefined; ATLAS_SEARCH_INDEX?: string | undefined; TRUST_PROXY_HOPS?: number | undefined };
+export type Environment = Omit<z.infer<typeof environmentSchema>, 'JOB_SEARCH_MODE' | 'ATLAS_SEARCH_INDEX' | 'TRUST_PROXY_HOPS' | 'SLOW_REQUEST_THRESHOLD_MS' | 'APP_VERSION' | 'APP_REVISION' | 'GIT_SHA' | 'VERCEL_GIT_COMMIT_SHA' | 'BUILD_ID'> & {
+  JOB_SEARCH_MODE?: 'basic' | 'atlas' | undefined;
+  ATLAS_SEARCH_INDEX?: string | undefined;
+  TRUST_PROXY_HOPS?: number | undefined;
+  SLOW_REQUEST_THRESHOLD_MS?: number | undefined;
+  APP_VERSION?: string | undefined;
+  APP_REVISION?: string | undefined;
+  GIT_SHA?: string | undefined;
+  VERCEL_GIT_COMMIT_SHA?: string | undefined;
+  BUILD_ID?: string | undefined;
+};
+
+export function applicationRevision(environment: Pick<Environment, 'APP_REVISION' | 'GIT_SHA' | 'VERCEL_GIT_COMMIT_SHA' | 'BUILD_ID'>): string {
+  return environment.APP_REVISION ?? environment.GIT_SHA ?? environment.VERCEL_GIT_COMMIT_SHA ?? environment.BUILD_ID ?? 'unknown';
+}
 
 export function loadEnvironment(source: NodeJS.ProcessEnv = process.env): Environment {
   const result = environmentSchema.safeParse(source);

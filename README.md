@@ -82,6 +82,14 @@ Browser E2E is intentionally deferred until a dedicated isolated web/API test ru
 
 All future API routes use `/api/v1`. Controlled errors include a stable code, a safe message, and `X-Request-Id` correlation value.
 
+## Operations and diagnostics
+
+The API emits structured JSON logs with a returned `X-Request-ID`, safe lifecycle events, request duration, normalized route, status, and authenticated principal ID only where available. Request and response bodies, tokens, cookies, signed URLs, and provider credentials are not logged. Requests exceeding `SLOW_REQUEST_THRESHOLD_MS` (default `1000`) receive a `slow_http_request` warning.
+
+`GET /metrics` exposes Prometheus-compatible process, HTTP, and bounded operational counters. Treat it as an internal/infrastructure-protected endpoint; the application does not add a Prometheus server, Grafana, Sentry, OpenTelemetry, or product analytics. HTTP labels use route templates and status classes, never raw URLs, IDs, emails, IPs, request IDs, or search terms. Deployment metadata comes from safe `APP_VERSION`/revision environment values and never invokes Git at runtime.
+
+See [the operations runbook](docs/operations/runbook.md) for health semantics, database/email/storage/search troubleshooting, and startup/shutdown guidance.
+
 ## Authentication API
 
 | Method | Route | Purpose |
@@ -207,11 +215,11 @@ docker/           Application Dockerfiles
 
 Search uses validated `JOB_SEARCH_MODE`. `basic` (the Docker/local default) uses the existing weighted MongoDB text index with deterministic escaped filters. `atlas` uses the Atlas Search query builder, with title/skills/requirements/description boosts and conservative fuzzy matching. Atlas index creation is a manual deployment step using [the checked-in mapping](docs/architecture/atlas-job-search-index.json); the application never attempts to create or alter an Atlas index. Production must explicitly choose a mode and must set `ATLAS_SEARCH_INDEX` when choosing `atlas`.
 
-## Phase 12 status and intentionally deferred work
+## Current status and intentionally deferred work
 
-Implemented: workspace foundation, API lifecycle separation, strict configuration, MongoDB lifecycle handling, standardized health/error responses, request validation and query-safety primitives, security middleware, request correlation, bounded shutdown/timeouts, Docker health checks, isolated test-database guardrails, password authentication, rotating refresh sessions, RBAC primitives, private profiles/companies, Job discovery, private resume management, Applicant Job submission/history/withdrawal, Employer-owned Application review, Saved Jobs/dashboard data, SMTP-backed transactional email, verification/reset delivery, and best-effort Application notifications.
+Implemented: workspace foundation, API lifecycle separation, strict configuration, MongoDB lifecycle handling, standardized health/error responses, request validation and query-safety primitives, security middleware, request correlation, bounded shutdown/timeouts, Docker health checks, isolated test-database guardrails, password authentication, rotating refresh sessions, RBAC primitives, private profiles/companies, Job discovery, private resume management, Applicant Job submission/history/withdrawal, Employer-owned Application review, Saved Jobs/dashboard data, SMTP-backed transactional email, verification/reset delivery, best-effort Application notifications, role-based frontend, Atlas/basic search selection, security hardening, test coverage foundation, and Phase 15 structured operational logs, safe version metadata, Prometheus-compatible bounded metrics, MongoDB readiness ping, and an operations runbook.
 
-Deferred: frontend dashboard UI, saved-search alerts, resume parsing, company teams, caching, queues/outbox workers, recommendations, analytics, SMS/push, payments, Atlas synonym/highlight/analytics capabilities, and all other product features. See [the architecture document](docs/architecture/architecture.md) for operational conventions and scale-up seams.
+Deferred: saved-search alerts, resume parsing, company teams, caching, queues/outbox workers, recommendations, business analytics, SMS/push, payments, Atlas synonym/highlight capabilities, external metrics collection/dashboards, error reporting, distributed tracing, and all other product features. See [the architecture document](docs/architecture/architecture.md) for operational conventions and scale-up seams.
 
 ## Frontend development
 

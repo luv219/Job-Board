@@ -14,6 +14,7 @@ import { parseSort } from '../lib/sorting.js';
 import { publicActiveJobFilter } from '../jobs/public-eligibility.js';
 import { autocompletePublicJobs, searchPublicJobs } from '../jobs/search.js';
 import { publicRateLimit, principalRateLimit } from '../middleware/security.js';
+import type { OperationalMetrics } from '../lib/metrics.js';
 
 function duplicate(error: unknown): boolean { return typeof error === 'object' && error !== null && 'code' in error && error.code === 11000; }
 
@@ -63,7 +64,7 @@ async function createWithUniqueSlug(input: JobCreateInput, companyId: string, us
   throw new AppError({ statusCode: 409, code: 'CONFLICT', message: 'Unable to create a unique job slug' });
 }
 
-export function createJobRouter(environment: Environment): Router {
+export function createJobRouter(environment: Environment, metrics: OperationalMetrics): Router {
   const router = Router();
   const employerOnly = [requireAuth(environment), requireRole('EMPLOYER')];
 
@@ -141,12 +142,12 @@ export function createJobRouter(environment: Environment): Router {
 
   router.get('/jobs', publicRateLimit(120), validate('query', publicJobSearchSchema), async (_request, response, next) => {
     try {
-      response.json(await searchPublicJobs(response.locals.validatedQuery as PublicJobSearchQuery, environment));
+      response.json(await searchPublicJobs(response.locals.validatedQuery as PublicJobSearchQuery, environment, metrics));
     } catch (error) { next(error); }
   });
 
   router.get('/jobs/autocomplete', publicRateLimit(60, 60_000), validate('query', publicJobAutocompleteSchema), async (_request, response, next) => {
-    try { response.json(await autocompletePublicJobs(response.locals.validatedQuery as PublicJobAutocompleteQuery)); }
+    try { response.json(await autocompletePublicJobs(response.locals.validatedQuery as PublicJobAutocompleteQuery, metrics)); }
     catch (error) { next(error); }
   });
 

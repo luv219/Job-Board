@@ -11,6 +11,7 @@ import type { EmployerApplicationStatus } from './lifecycle.js';
 import { canEmployerTransition } from './lifecycle.js';
 import { User } from '../models/user.js';
 import type { EmailNotificationService } from '../notifications/email-notification-service.js';
+import type { OperationalMetrics } from '../lib/metrics.js';
 
 type PersistedApplication = ApplicationRecord & { _id: { toString(): string } };
 type ApplicantProfileSummary = { userId: { toString(): string }; fullName: string; headline?: string; bio?: string; location: { city: string; state?: string; country: string }; skills: string[]; experience: unknown[]; education: unknown[] };
@@ -33,7 +34,7 @@ function candidateDetail(profile: ApplicantProfileSummary | undefined) {
 }
 
 export class EmployerApplicationService {
-  public constructor(private readonly storage: ResumeStorageProvider, private readonly logger: Logger, private readonly notifications: EmailNotificationService) {}
+  public constructor(private readonly storage: ResumeStorageProvider, private readonly logger: Logger, private readonly notifications: EmailNotificationService, private readonly metrics: OperationalMetrics) {}
 
   public async listForJob(employerUserId: string, jobId: string, query: ApplicantApplicationListQuery) {
     const company = await this.ownedCompany(employerUserId);
@@ -91,9 +92,11 @@ export class EmployerApplicationService {
     const expiresAt = new Date(Date.now() + 5 * 60 * 1_000);
     try {
       const accessUrl = await this.storage.createAccessUrl({ assetId: application.resumeSnapshot.assetId, expiresAt });
+      this.metrics.recordResume('access', 'success');
       this.logger.info({ event: 'application_resume_access_granted', applicationId }, 'Application resume snapshot access granted');
       return { accessUrl, expiresAt };
     } catch {
+      this.metrics.recordResume('access', 'failure');
       this.logger.error({ event: 'application_resume_access_failed', applicationId }, 'Application resume snapshot access failed');
       throw new AppError({ statusCode: 503, code: 'RESUME_SNAPSHOT_ERROR', message: 'Resume snapshot storage is temporarily unavailable' });
     }

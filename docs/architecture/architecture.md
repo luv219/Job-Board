@@ -138,6 +138,14 @@ Saved Jobs are references, not Job snapshots. When a previously saved Job later 
 
 No cache, materialized dashboard data, notification preference, alert, recommendation signal, behavioral analytics event, or frontend dashboard UI is introduced. Caching can be evaluated later only with measured load and explicit invalidation requirements.
 
+## Operations foundation
+
+The modular monolith uses request IDs, structured stdout logs, explicit health semantics, and one in-process Prometheus-compatible metrics registry. Liveness is independent of downstream providers; readiness requires Mongoose connection state plus a short MongoDB admin ping. Email, private resume storage, and Atlas Search are operation-specific dependencies: their failures are measured and logged safely but do not make unrelated routes unready.
+
+The `/metrics` endpoint is intended for an internal monitoring network or infrastructure access policy. It exports default Node process metrics, HTTP request counters/histograms, and bounded email, resume, search, and application-operation metrics. It does not export raw URLs, user IDs, email addresses, IP addresses, request IDs, Job/Application IDs, or search terms as labels. This repository intentionally does not run Prometheus, Grafana, Sentry, OpenTelemetry, distributed tracing, or a log database.
+
+At larger scale, an external error-reporting provider or OpenTelemetry can be evaluated after privacy/redaction requirements, deployment topology, and a cross-service tracing need are established. No such integration is required by the current single API process.
+
 ## Deferred seams
 
-S3/R2 resume storage alternatives, resume parsing/scanning, OAuth, MFA, company teams, saved-search/job alerts, messaging, internal notes, interview scheduling, recommendations, analytics, MongoDB Atlas/Search, Redis/BullMQ, caching, horizontal API replicas, CDN, observability, and frontend dashboard UI can be introduced behind future module boundaries. Application snapshot retention/account-erasure policy and production index rollout require explicit operational design. Full OpenAPI generation is deferred until business routes provide enough surface area. Persistent business schemas will require an explicit migration strategy. No distributed infrastructure is needed today.
+S3/R2 resume storage alternatives, resume parsing/scanning, OAuth, MFA, company teams, saved-search/job alerts, messaging, internal notes, interview scheduling, recommendations, analytics, MongoDB Atlas/Search, Redis/BullMQ, caching, horizontal API replicas, CDN, external observability services, and frontend dashboard UI can be introduced behind future module boundaries. Application snapshot retention/account-erasure policy and production index rollout require explicit operational design. Full OpenAPI generation is deferred until business routes provide enough surface area. Persistent business schemas will require an explicit migration strategy. No distributed infrastructure is needed today.

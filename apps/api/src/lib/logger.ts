@@ -1,8 +1,8 @@
 import pino from 'pino';
 import type { Environment } from '../config/env.js';
 
-export function createLogger(environment: Pick<Environment, 'NODE_ENV' | 'LOG_LEVEL'>): pino.Logger {
-  return pino({
+export function createLogger(environment: Pick<Environment, 'NODE_ENV' | 'LOG_LEVEL'>, destination?: pino.DestinationStream): pino.Logger {
+  const options: pino.LoggerOptions = {
     level: environment.NODE_ENV === 'test' ? 'silent' : environment.LOG_LEVEL,
     redact: {
       paths: [
@@ -13,5 +13,6 @@ export function createLogger(environment: Pick<Environment, 'NODE_ENV' | 'LOG_LE
       ],
       censor: '[REDACTED]',
     },
-  });
+  };
+  return destination ? pino(options, destination) : pino(options);
 }
