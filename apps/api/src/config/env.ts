@@ -4,6 +4,10 @@ const optionalValue = z.preprocess(
   (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
   z.string().trim().min(1).max(512).optional(),
 );
+const optionalEmail = z.preprocess(
+  (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
+  z.string().trim().email().max(320).optional(),
+);
 
 const environmentSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -21,6 +25,13 @@ const environmentSchema = z.object({
   CLOUDINARY_CLOUD_NAME: optionalValue,
   CLOUDINARY_API_KEY: optionalValue,
   CLOUDINARY_API_SECRET: optionalValue,
+  EMAIL_PROVIDER: z.enum(['console', 'smtp']).optional(),
+  EMAIL_FROM: optionalEmail,
+  SMTP_HOST: optionalValue,
+  SMTP_PORT: z.preprocess((value) => typeof value === 'string' && value.trim() === '' ? undefined : value, z.coerce.number().int().min(1).max(65_535).optional()),
+  SMTP_USER: optionalValue,
+  SMTP_PASSWORD: optionalValue,
+  SMTP_SECURE: z.preprocess((value) => typeof value === 'string' && value.trim() === '' ? undefined : value, z.enum(['true', 'false']).transform((value) => value === 'true').optional()),
 }).superRefine((environment, context) => {
   if (/replace|change-me|placeholder|example/i.test(environment.ACCESS_TOKEN_SECRET)) {
     context.addIssue({ code: 'custom', path: ['ACCESS_TOKEN_SECRET'], message: 'must be replaced with a strong secret' });
@@ -31,6 +42,13 @@ const environmentSchema = z.object({
         context.addIssue({ code: 'custom', path: [field], message: 'is required for private resume storage in production' });
       }
     }
+    if (environment.EMAIL_PROVIDER !== 'smtp') context.addIssue({ code: 'custom', path: ['EMAIL_PROVIDER'], message: 'must be smtp in production' });
+    for (const field of ['EMAIL_FROM', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD'] as const) {
+      if (environment[field] === undefined || (typeof environment[field] === 'string' && /replace|change-me|placeholder|example/i.test(environment[field]))) {
+        context.addIssue({ code: 'custom', path: [field], message: 'is required for SMTP email delivery in production' });
+      }
+    }
+    if (!environment.WEB_ORIGIN.startsWith('https://')) context.addIssue({ code: 'custom', path: ['WEB_ORIGIN'], message: 'must use HTTPS in production' });
   }
 });
 

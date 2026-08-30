@@ -9,6 +9,8 @@ import type { ResumeStorageProvider } from '../resume/storage/resume-storage-pro
 import type { ApplicantApplicationListQuery } from './validation.js';
 import type { EmployerApplicationStatus } from './lifecycle.js';
 import { canEmployerTransition } from './lifecycle.js';
+import { User } from '../models/user.js';
+import type { EmailNotificationService } from '../notifications/email-notification-service.js';
 
 type PersistedApplication = ApplicationRecord & { _id: { toString(): string } };
 type ApplicantProfileSummary = { userId: { toString(): string }; fullName: string; headline?: string; bio?: string; location: { city: string; state?: string; country: string }; skills: string[]; experience: unknown[]; education: unknown[] };
@@ -31,7 +33,7 @@ function candidateDetail(profile: ApplicantProfileSummary | undefined) {
 }
 
 export class EmployerApplicationService {
-  public constructor(private readonly storage: ResumeStorageProvider, private readonly logger: Logger) {}
+  public constructor(private readonly storage: ResumeStorageProvider, private readonly logger: Logger, private readonly notifications: EmailNotificationService) {}
 
   public async listForJob(employerUserId: string, jobId: string, query: ApplicantApplicationListQuery) {
     const company = await this.ownedCompany(employerUserId);
@@ -75,6 +77,10 @@ export class EmployerApplicationService {
       throw new AppError({ statusCode: 409, code: 'APPLICATION_STATUS_CONFLICT', message: 'Application status changed before the update could be applied' });
     }
     this.logger.info({ event: 'application_status_updated', applicationId, status: target }, 'Application status updated');
+    const applicantUser = await User.findById(updated.applicantUserId).select('email accountStatus').lean();
+    if (applicantUser?.accountStatus === 'ACTIVE') {
+      await this.notifications.sendApplicationStatusChanged({ applicantEmail: applicantUser.email, applicantUserId: updated.applicantUserId.toString(), jobTitle: job.title, companyName: company.name, status: target });
+    }
     const profile = await ApplicantProfile.findOne({ userId: updated.applicantUserId }).select('userId fullName headline bio location skills experience education').lean() as ApplicantProfileSummary | null;
     return this.detail(updated, job, profile ?? undefined);
   }

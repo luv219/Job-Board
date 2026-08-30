@@ -1,6 +1,6 @@
 # Job Board
 
-A production-oriented TypeScript MERN modular monolith for a niche job board. Phase 8 adds Employer Application review, a controlled hiring pipeline, and authorized immutable resume-snapshot access.
+A production-oriented TypeScript MERN modular monolith for a niche job board. Phase 10 adds transactional email delivery, secure account verification and password recovery, and best-effort application notifications.
 
 ## Architecture
 
@@ -30,7 +30,7 @@ npm install
 Copy-Item .env.example .env
 ```
 
-Set `MONGODB_URI` in `.env` to a local MongoDB instance. `API_HOST`, `API_PORT`, `WEB_ORIGIN`, `LOG_LEVEL`, and `REQUEST_BODY_LIMIT` are validated at startup. Production also requires `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` for private resume storage. The example is safe and contains no real secret.
+Set `MONGODB_URI` in `.env` to a local MongoDB instance. `API_HOST`, `API_PORT`, `WEB_ORIGIN`, `LOG_LEVEL`, and `REQUEST_BODY_LIMIT` are validated at startup. Development defaults to a no-network console email provider; production requires `EMAIL_PROVIDER=smtp`, `EMAIL_FROM`, and valid SMTP settings, as well as Cloudinary credentials for private resume storage. The example is safe and contains no real secret.
 
 ## Local development
 
@@ -77,8 +77,18 @@ All future API routes use `/api/v1`. Controlled errors include a stable code, a 
 | `POST` | `/api/v1/auth/refresh` | Rotate the HttpOnly refresh credential and obtain an access token |
 | `POST` | `/api/v1/auth/logout` | Revoke the active refresh session and clear its cookie |
 | `GET` | `/api/v1/auth/me` | Retrieve the current account using a bearer access token |
+| `POST` | `/api/v1/auth/email-verification/request` | Send a replacement verification link for the authenticated account |
+| `POST` | `/api/v1/auth/email-verification/confirm` | Consume a verification token |
+| `POST` | `/api/v1/auth/password-reset/request` | Request a password reset with an enumeration-safe response |
+| `POST` | `/api/v1/auth/password-reset/confirm` | Consume a reset token and revoke all refresh sessions |
 
-The access token is returned in the response and is intended for short-lived in-memory client use. The opaque refresh credential is sent only in an HttpOnly, same-site cookie. Registration authenticates the account immediately; email verification delivery, password resets, OAuth, and MFA are intentionally deferred.
+The access token is returned in the response and is intended for short-lived in-memory client use. The opaque refresh credential is sent only in an HttpOnly, same-site cookie. Registration remains usable while `emailVerified=false`; it sends a best-effort verification email and verification can be resent by the authenticated account. Verification links expire after 24 hours; reset links expire after 30 minutes. Both use a high-entropy token stored only as a SHA-256 digest, are purpose-isolated, single-use, and rotate prior active tokens. Password reset preserves account identity/role/status and revokes all refresh sessions.
+
+## Transactional email
+
+Email delivery is behind a small provider boundary. SMTP/Nodemailer is the single production provider; development uses a console provider and tests inject an in-memory fake, so neither Docker nor CI needs mail credentials. Templates are centralized with HTML escaping and plain-text alternatives. Links always use the validated `WEB_ORIGIN`, never a request Host header.
+
+Successful Application submission sends best-effort confirmation to the Applicant and a new-Application notice to the owning Employer. A successful Employer status transition sends the Applicant a status email. No resume file, provider URL, signed URL, raw token, email body, or Employer contact address is exposed through API responses or logs. Business writes complete before notification is attempted, and a delivery failure is logged safely without rolling back the Application or status change. Security email delivery failures revoke the just-issued token; password-reset requests retain their generic response to prevent enumeration.
 
 ## Profile, company, and Job API
 
@@ -177,8 +187,8 @@ docker/           Application Dockerfiles
 .github/workflows/ CI quality gate
 ```
 
-## Phase 9 status and intentionally deferred work
+## Phase 10 status and intentionally deferred work
 
-Implemented: workspace foundation, API lifecycle separation, strict configuration, MongoDB lifecycle handling, standardized health/error responses, request validation and query-safety primitives, security middleware, request correlation, bounded shutdown/timeouts, Docker health checks, isolated test-database guardrails, password authentication, rotating refresh sessions, RBAC primitives, private profiles/companies, Job discovery, private resume management, Applicant Job submission/history/withdrawal, Employer-owned Application review, private Saved Jobs, and a bounded Applicant dashboard summary derived from source collections.
+Implemented: workspace foundation, API lifecycle separation, strict configuration, MongoDB lifecycle handling, standardized health/error responses, request validation and query-safety primitives, security middleware, request correlation, bounded shutdown/timeouts, Docker health checks, isolated test-database guardrails, password authentication, rotating refresh sessions, RBAC primitives, private profiles/companies, Job discovery, private resume management, Applicant Job submission/history/withdrawal, Employer-owned Application review, Saved Jobs/dashboard data, SMTP-backed transactional email, verification/reset delivery, and best-effort Application notifications.
 
-Deferred: frontend dashboard UI, saved-search alerts, resume parsing, email, company teams, caching, queues, recommendations, analytics, payments, advanced Atlas Search capabilities, and all other product features. See [the architecture document](docs/architecture/architecture.md) for operational conventions and scale-up seams.
+Deferred: frontend dashboard UI, saved-search alerts, resume parsing, company teams, caching, queues/outbox workers, recommendations, analytics, SMS/push, payments, advanced Atlas Search capabilities, and all other product features. See [the architecture document](docs/architecture/architecture.md) for operational conventions and scale-up seams.

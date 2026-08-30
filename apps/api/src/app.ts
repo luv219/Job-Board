@@ -18,17 +18,22 @@ import { createEmployerApplicationRouter } from './routes/employer-applications.
 import { createSavedJobRouter } from './routes/saved-jobs.js';
 import { createApplicantDashboardRouter } from './routes/dashboard.js';
 import type { ResumeStorageProvider } from './resume/storage/resume-storage-provider.js';
+import type { EmailProvider } from './notifications/email-provider.js';
+import { createEmailProvider } from './notifications/create-email-provider.js';
+import { EmailNotificationService } from './notifications/email-notification-service.js';
 
 interface AppOptions {
   environment: Environment;
   logger: Logger;
   isDatabaseReady: () => boolean;
   resumeStorageProvider?: ResumeStorageProvider;
+  emailProvider?: EmailProvider;
   configureRoutes?: (app: Express) => void;
 }
 
-export function createApp({ environment, logger, isDatabaseReady, resumeStorageProvider, configureRoutes }: AppOptions) {
+export function createApp({ environment, logger, isDatabaseReady, resumeStorageProvider, emailProvider, configureRoutes }: AppOptions) {
   const app = express();
+  const notifications = new EmailNotificationService(emailProvider ?? createEmailProvider(environment, logger), environment, logger);
   app.disable('x-powered-by');
   app.use(requestId);
   app.use(pinoHttp<Request, Response>({ logger, genReqId: (request) => request.id }));
@@ -38,11 +43,11 @@ export function createApp({ environment, logger, isDatabaseReady, resumeStorageP
   app.use(express.urlencoded({ extended: false, limit: environment.REQUEST_BODY_LIMIT }));
   app.use(cookieParser());
   app.use('/api/v1/health', createHealthRouter(isDatabaseReady));
-  app.use('/api/v1/auth', createAuthRouter(environment));
+  app.use('/api/v1/auth', createAuthRouter(environment, notifications));
   app.use('/api/v1', createProfileRouter(environment));
   app.use('/api/v1', createResumeRouter(environment, resumeStorageProvider));
-  app.use('/api/v1', createApplicationRouter(environment, resumeStorageProvider));
-  app.use('/api/v1', createEmployerApplicationRouter(environment, resumeStorageProvider));
+  app.use('/api/v1', createApplicationRouter(environment, notifications, resumeStorageProvider));
+  app.use('/api/v1', createEmployerApplicationRouter(environment, notifications, resumeStorageProvider));
   app.use('/api/v1', createSavedJobRouter(environment));
   app.use('/api/v1', createApplicantDashboardRouter(environment));
   app.use('/api/v1', createJobRouter(environment));

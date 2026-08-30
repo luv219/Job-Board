@@ -52,6 +52,8 @@ export const apiErrorCodeSchema = z.enum([
   'RESUME_SNAPSHOT_ERROR',
   'APPLICATION_INVALID_TRANSITION',
   'APPLICATION_STATUS_CONFLICT',
+  'EMAIL_DELIVERY_FAILED',
+  'TOKEN_INVALID_OR_EXPIRED',
 ]);
 
 export const apiErrorResponseSchema = z.object({
@@ -73,6 +75,7 @@ export const publicUserSchema = z.object({
   email: z.string().email(),
   role: userRoleSchema,
   accountStatus: z.enum(['ACTIVE', 'DISABLED']),
+  emailVerified: z.boolean(),
   createdAt: z.string(),
 });
 export type PublicUser = z.infer<typeof publicUserSchema>;

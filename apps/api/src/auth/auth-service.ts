@@ -18,7 +18,7 @@ type UserDocument = UserRecord & { _id: Types.ObjectId };
 export function toPublicUser(user: UserDocument): PublicUser {
   return {
     id: user._id.toString(), email: user.email, role: user.role,
-    accountStatus: user.accountStatus, createdAt: user.createdAt.toISOString(),
+    accountStatus: user.accountStatus, emailVerified: user.emailVerified, createdAt: user.createdAt.toISOString(),
   };
 }
 

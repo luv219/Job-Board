@@ -9,6 +9,8 @@ import { AppError } from '../lib/app-error.js';
 import type { ApplicantApplicationListQuery, SubmitApplicationInput } from './validation.js';
 import type { ResumeStorageProvider } from '../resume/storage/resume-storage-provider.js';
 import { canApplicantWithdraw } from './lifecycle.js';
+import { User } from '../models/user.js';
+import type { EmailNotificationService } from '../notifications/email-notification-service.js';
 
 type PersistedApplication = ApplicationRecord & { _id: { toString(): string } };
 type JobSummaryRecord = { _id: { toString(): string }; companyId: { toString(): string }; slug: string; title: string; workMode: string; employmentType: string };
@@ -21,7 +23,7 @@ function safeSnapshot(snapshot: NonNullable<ApplicationRecord['resumeSnapshot']>
 }
 
 export class ApplicationService {
-  public constructor(private readonly storage: ResumeStorageProvider, private readonly logger: Logger) {}
+  public constructor(private readonly storage: ResumeStorageProvider, private readonly logger: Logger, private readonly notifications: EmailNotificationService) {}
 
   public async submit(applicantUserId: string, jobId: string, input: SubmitApplicationInput) {
     const profile = await ApplicantProfile.findOne({ userId: applicantUserId }).lean();
@@ -76,6 +78,7 @@ export class ApplicationService {
       throw new AppError({ statusCode: 500, code: 'INTERNAL_ERROR', message: 'Unable to finalize application submission' });
     }
     this.logger.info({ event: 'application_submitted', applicationId: application._id.toString() }, 'Application submitted');
+    await this.notifySubmission({ applicantUserId, job, profile });
     return this.withJobSummary(application);
   }
 
@@ -148,5 +151,19 @@ export class ApplicationService {
   private async discardSnapshot(assetId: string): Promise<void> {
     try { await this.storage.deleteResume(assetId); }
     catch { this.logger.warn({ event: 'application_snapshot_cleanup_failed' }, 'Application snapshot cleanup failed'); }
+  }
+
+  private async notifySubmission(input: { applicantUserId: string; job: { _id: { toString(): string }; companyId: { toString(): string }; title: string }; profile: { fullName: string } }) {
+    const [applicant, company] = await Promise.all([
+      User.findById(input.applicantUserId).select('email accountStatus').lean(),
+      Company.findById(input.job.companyId).select('ownerUserId name').lean(),
+    ]);
+    if (!applicant || applicant.accountStatus !== 'ACTIVE' || !company) return;
+    const employer = await User.findById(company.ownerUserId).select('email accountStatus').lean();
+    if (!employer || employer.accountStatus !== 'ACTIVE') return;
+    await this.notifications.sendApplicationSubmitted({
+      applicantEmail: applicant.email, employerEmail: employer.email, applicantUserId: input.applicantUserId, employerUserId: employer._id.toString(),
+      applicantName: input.profile.fullName, jobTitle: input.job.title, companyName: company.name, jobId: input.job._id.toString(),
+    });
   }
 }

@@ -17,6 +17,14 @@ export function hashRefreshToken(token: string): string {
   return createHash('sha256').update(token).digest('base64url');
 }
 
+export function createOneTimeToken(): string {
+  return randomBytes(32).toString('base64url');
+}
+
+export function hashOneTimeToken(token: string): string {
+  return createHash('sha256').update(token).digest('base64url');
+}
+
 export async function createAccessToken(userId: string, role: string, environment: Environment): Promise<string> {
   return new SignJWT({ role })
     .setProtectedHeader({ alg: algorithm, typ: 'JWT' })

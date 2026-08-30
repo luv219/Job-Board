@@ -9,6 +9,7 @@ export interface UserRecord {
   passwordHash: string;
   role: UserRole;
   accountStatus: (typeof accountStatuses)[number];
+  emailVerified: boolean;
   lastLoginAt?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -19,6 +20,7 @@ const userSchema = new Schema<UserRecord>({
   passwordHash: { type: String, required: true, select: false },
   role: { type: String, required: true, enum: userRoles },
   accountStatus: { type: String, required: true, enum: accountStatuses, default: 'ACTIVE' },
+  emailVerified: { type: Boolean, required: true, default: false },
   lastLoginAt: { type: Date },
 }, { timestamps: true, strict: 'throw' });
 
