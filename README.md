@@ -152,6 +152,21 @@ The Employer-controlled transition map is: `SUBMITTED → UNDER_REVIEW | SHORTLI
 
 List responses expose only candidate name, optional headline, location, skills, and safe snapshot metadata. Detail additionally includes the Applicant’s profile content and cover letter, but never User credentials, email, current-resume metadata, provider asset IDs, or raw resume data. Resume access targets only the immutable Application snapshot and sends `Cache-Control: private, no-store`; it remains available to the authorized owning Employer after withdrawal or a terminal decision so the retained hiring record is reviewable.
 
+## Applicant Saved Jobs and dashboard API
+
+Saved Jobs are private Applicant bookmarks held in a separate `SavedJob` collection. The database uniquely enforces one bookmark per `(applicantUserId, jobId)`. Saving is idempotent: an active public Job returns `201` on its first save and `200` when it is already saved. Unsaving is also idempotent and returns `204`, without changing the Job or any Application.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/v1/applicant/saved-jobs/:jobId` | Save an active public Job |
+| `DELETE` | `/api/v1/applicant/saved-jobs/:jobId` | Remove the authenticated Applicant’s bookmark |
+| `GET` | `/api/v1/applicant/saved-jobs` | List personal bookmarks (`page`, `limit`, `sort`) |
+| `GET` | `/api/v1/applicant/dashboard` | Retrieve a concise, private Applicant dashboard summary |
+
+New saves require the same Published/non-expired eligibility as public Jobs. Existing Saved Jobs remain after a Job closes, archives, or expires; list and dashboard data mark them inactive while retaining only safe Job and Company fields. Hidden salary stays hidden. Saving and applying are independent actions.
+
+The dashboard is a bounded derived read model, not a collection. It reads the Applicant profile/resume metadata, current Application statuses and recent Applications, and SavedJob counts/recent bookmarks from their authoritative collections. It never creates a resume URL or persists dashboard counters. Full frontend dashboard UI, Job alerts, recommendations, and analytics are deferred.
+
 ## Repository structure
 
 ```text
@@ -162,8 +177,8 @@ docker/           Application Dockerfiles
 .github/workflows/ CI quality gate
 ```
 
-## Phase 8 status and intentionally deferred work
+## Phase 9 status and intentionally deferred work
 
-Implemented: workspace foundation, API lifecycle separation, strict configuration, MongoDB lifecycle handling, standardized health/error responses, request validation and query-safety primitives, security middleware, request correlation, bounded shutdown/timeouts, Docker health checks, isolated test-database guardrails, password authentication, rotating refresh sessions, RBAC primitives, private profiles/companies, Job discovery, private resume management, Applicant Job submission/history/withdrawal, and Employer-owned Application review with explicit hiring transitions and snapshot-only resume access.
+Implemented: workspace foundation, API lifecycle separation, strict configuration, MongoDB lifecycle handling, standardized health/error responses, request validation and query-safety primitives, security middleware, request correlation, bounded shutdown/timeouts, Docker health checks, isolated test-database guardrails, password authentication, rotating refresh sessions, RBAC primitives, private profiles/companies, Job discovery, private resume management, Applicant Job submission/history/withdrawal, Employer-owned Application review, private Saved Jobs, and a bounded Applicant dashboard summary derived from source collections.
 
-Deferred: saved jobs, resume parsing, email, dashboards, company teams, caching, queues, analytics, payments, advanced Atlas Search capabilities, and all other product features. See [the architecture document](docs/architecture/architecture.md) for operational conventions and scale-up seams.
+Deferred: frontend dashboard UI, saved-search alerts, resume parsing, email, company teams, caching, queues, recommendations, analytics, payments, advanced Atlas Search capabilities, and all other product features. See [the architecture document](docs/architecture/architecture.md) for operational conventions and scale-up seams.

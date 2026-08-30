@@ -139,6 +139,28 @@ export const applicantApplicationSchema = z.object({
 });
 export type ApplicantApplication = z.infer<typeof applicantApplicationSchema>;
 
+export const savedJobAvailabilitySchema = z.enum(['ACTIVE', 'EXPIRED', 'CLOSED', 'ARCHIVED', 'UNAVAILABLE']);
+export const savedJobItemSchema = z.object({
+  id: z.string(), savedAt: z.string(), isActive: z.boolean(), availability: savedJobAvailabilitySchema,
+  job: z.object({
+    id: z.string(), slug: z.string(), title: z.string(), skills: z.array(z.string()), location: locationSchema,
+    workMode: workModeSchema, employmentType: employmentTypeSchema, salary: salarySchema.optional(), applicationDeadline: z.string().optional(),
+    publishedAt: z.string().optional(), status: jobStatusSchema,
+    company: z.object({ name: z.string(), slug: z.string(), industry: z.string().optional(), location: locationSchema }),
+  }).nullable(),
+});
+export type SavedJobItem = z.infer<typeof savedJobItemSchema>;
+export const applicantDashboardSchema = z.object({
+  profile: z.object({ exists: z.boolean(), fullName: z.string().optional(), headline: z.string().optional(), location: locationSchema.optional() }),
+  resume: z.object({ exists: z.boolean(), originalFilename: z.string().optional(), uploadedAt: z.string().optional() }),
+  applications: z.object({
+    total: z.number().int().nonnegative(), byStatus: z.record(applicationStatusSchema, z.number().int().nonnegative()),
+    recent: z.array(z.object({ id: z.string(), status: applicationStatusSchema, appliedAt: z.string(), job: z.object({ id: z.string(), slug: z.string(), title: z.string(), company: z.object({ name: z.string(), slug: z.string() }) }).nullable() })),
+  }),
+  savedJobs: z.object({ total: z.number().int().nonnegative(), recent: z.array(savedJobItemSchema) }),
+});
+export type ApplicantDashboard = z.infer<typeof applicantDashboardSchema>;
+
 export const employerApplicantSummarySchema = z.object({
   fullName: z.string(), headline: z.string().optional(), location: locationSchema, skills: z.array(z.string()),
 }).nullable();

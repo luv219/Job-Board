@@ -15,6 +15,8 @@ import { createJobRouter } from './routes/jobs.js';
 import { createResumeRouter } from './routes/resumes.js';
 import { createApplicationRouter } from './routes/applications.js';
 import { createEmployerApplicationRouter } from './routes/employer-applications.js';
+import { createSavedJobRouter } from './routes/saved-jobs.js';
+import { createApplicantDashboardRouter } from './routes/dashboard.js';
 import type { ResumeStorageProvider } from './resume/storage/resume-storage-provider.js';
 
 interface AppOptions {
@@ -41,6 +43,8 @@ export function createApp({ environment, logger, isDatabaseReady, resumeStorageP
   app.use('/api/v1', createResumeRouter(environment, resumeStorageProvider));
   app.use('/api/v1', createApplicationRouter(environment, resumeStorageProvider));
   app.use('/api/v1', createEmployerApplicationRouter(environment, resumeStorageProvider));
+  app.use('/api/v1', createSavedJobRouter(environment));
+  app.use('/api/v1', createApplicantDashboardRouter(environment));
   app.use('/api/v1', createJobRouter(environment));
   configureRoutes?.(app);
   app.use(notFoundHandler);
