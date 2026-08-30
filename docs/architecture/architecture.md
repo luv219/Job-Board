@@ -150,6 +150,14 @@ The API and web are independently packaged as minimal production container image
 
 Deployment is intentionally provider-neutral. There is no Production Compose file because no hosting/networking topology has been selected, and there is no deployment workflow because no protected target or authorized credentials exist. CI validates immutable-source quality and production-image builds with no Production secrets. Any future deploy job must consume those immutable artifacts, use a protected environment and serialized target-specific concurrency, and run read-only smoke checks after readiness.
 
+## Performance baseline and future capacity work
+
+Phase 17 maintains one small autocannon-based local performance tool rather than adding a second test framework. Its seed command is hard-gated to local development/test MongoDB databases ending in `_perf`, requires an explicit synthetic-data confirmation, and may not target a shared or Production database. Load targets are local by default; non-local non-production use requires an intentionally named override, while production-like targets are refused. Tokens are caller-supplied and never emitted.
+
+The current API already uses bounded pagination, narrow projections, `lean()` reads, concurrent independent database reads, and batched Job/Company lookups rather than N+1 queries. Phase 17's measured local plans did not justify a new index, pool setting, cache, Redis, worker, replica, sharding strategy, or service boundary. The installed MongoDB driver's defaults remain in effect (max pool 100, min pool 0); capacity configuration must be set only after replica-count and database-connection budgets are known.
+
+Local baseline numbers and query-plan evidence are documented in [the performance baseline](../performance/baseline.md). They are explicitly not production capacity claims. Sustained performance work must establish route SLOs, use a representative non-production topology and data distribution, monitor client/API/MongoDB resources, then make one measured change at a time. Public search limits remain an intentional per-process guard; horizontal replicas require a deliberate shared rate-limit or edge-policy design before scale-out.
+
 Production disables Mongoose `autoIndex`; index rollout is an explicit operations responsibility. Atlas Search indexes must likewise be provisioned outside application startup. The release process never drops/seeds a database, recreates indexes, deletes storage, sends test email, or changes provider/DNS/TLS configuration. See the operational [deployment guide](../operations/deployment.md).
 
 At larger scale, an external error-reporting provider or OpenTelemetry can be evaluated after privacy/redaction requirements, deployment topology, and a cross-service tracing need are established. No such integration is required by the current single API process.
