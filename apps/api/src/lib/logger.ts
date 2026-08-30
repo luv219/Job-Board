@@ -8,7 +8,7 @@ export function createLogger(environment: Pick<Environment, 'NODE_ENV' | 'LOG_LE
       paths: [
         'req.headers.authorization', 'req.headers.cookie', 'req.headers["set-cookie"]',
         'res.headers["set-cookie"]', 'req.body', 'err.body', 'password', '*.password', 'token', '*.token',
-        'tokenHash', '*.tokenHash', 'verificationToken', '*.verificationToken', 'resetToken', '*.resetToken',
+        'tokenHash', '*.tokenHash', 'verificationToken', '*.verificationToken', 'resetToken', '*.resetToken', 'refreshToken', '*.refreshToken', 'accessToken', '*.accessToken',
         'html', '*.html', 'text', '*.text', 'accessUrl', '*.accessUrl',
       ],
       censor: '[REDACTED]',

@@ -9,13 +9,14 @@ import { applicantCreateSchema, applicantPatchSchema, companyCreateSchema, compa
 import { applicantProfileResponse, companyPublicResponse, employerProfileResponse } from '../profiles/serializers.js';
 import { AppError } from '../lib/app-error.js';
 import { slugify } from '../profiles/slug.js';
+import { privateNoStore } from '../middleware/security.js';
 
 function duplicate(error: unknown): boolean { return typeof error === 'object' && error !== null && 'code' in error && error.code === 11000; }
 
 export function createProfileRouter(environment: Environment): Router {
   const router = Router();
-  const applicantOnly = [requireAuth(environment), requireRole('APPLICANT')];
-  const employerOnly = [requireAuth(environment), requireRole('EMPLOYER')];
+  const applicantOnly = [privateNoStore, requireAuth(environment), requireRole('APPLICANT')];
+  const employerOnly = [privateNoStore, requireAuth(environment), requireRole('EMPLOYER')];
 
   router.post('/applicant/profile', ...applicantOnly, validate('body', applicantCreateSchema), async (request, response, next) => { try { const profile = await ApplicantProfile.create({ ...(request.body as object), userId: request.principal!.id }); response.status(201).json({ profile: applicantProfileResponse(profile) }); } catch (error) { next(duplicate(error) ? new AppError({ statusCode: 409, code: 'PROFILE_ALREADY_EXISTS', message: 'Applicant profile already exists' }) : error); } });
   router.get('/applicant/profile', ...applicantOnly, async (request, response, next) => { try { const profile = await ApplicantProfile.findOne({ userId: request.principal!.id }).lean(); if (!profile) throw new AppError({ statusCode: 404, code: 'PROFILE_NOT_FOUND', message: 'Applicant profile not found' }); response.json({ profile: applicantProfileResponse(profile) }); } catch (error) { next(error); } });

@@ -17,6 +17,7 @@ const environmentSchema = z.object({
   WEB_ORIGIN: z.string().trim().url(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   REQUEST_BODY_LIMIT: z.coerce.number().int().positive().max(1_048_576).default(102_400),
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(2).default(0),
   ACCESS_TOKEN_SECRET: z.string().trim().min(32),
   ACCESS_TOKEN_ISSUER: z.string().trim().min(1).default('job-board-api'),
   ACCESS_TOKEN_AUDIENCE: z.string().trim().min(1).default('job-board-web'),
@@ -56,7 +57,7 @@ const environmentSchema = z.object({
   }
 });
 
-export type Environment = Omit<z.infer<typeof environmentSchema>, 'JOB_SEARCH_MODE' | 'ATLAS_SEARCH_INDEX'> & { JOB_SEARCH_MODE?: 'basic' | 'atlas' | undefined; ATLAS_SEARCH_INDEX?: string | undefined };
+export type Environment = Omit<z.infer<typeof environmentSchema>, 'JOB_SEARCH_MODE' | 'ATLAS_SEARCH_INDEX' | 'TRUST_PROXY_HOPS'> & { JOB_SEARCH_MODE?: 'basic' | 'atlas' | undefined; ATLAS_SEARCH_INDEX?: string | undefined; TRUST_PROXY_HOPS?: number | undefined };
 
 export function loadEnvironment(source: NodeJS.ProcessEnv = process.env): Environment {
   const result = environmentSchema.safeParse(source);

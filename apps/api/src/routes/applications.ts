@@ -7,12 +7,14 @@ import { applicantApplicationListSchema, applicationIdParamsSchema, jobApplicati
 import { createResumeStorageProvider } from '../resume/storage/create-resume-storage-provider.js';
 import type { ResumeStorageProvider } from '../resume/storage/resume-storage-provider.js';
 import type { EmailNotificationService } from '../notifications/email-notification-service.js';
+import { principalRateLimit } from '../middleware/security.js';
+import { privateNoStore } from '../middleware/security.js';
 
 export function createApplicationRouter(environment: Environment, notifications: EmailNotificationService, storage: ResumeStorageProvider = createResumeStorageProvider(environment)): Router {
   const router = Router();
-  const applicantOnly = [requireAuth(environment), requireRole('APPLICANT')];
+  const applicantOnly = [privateNoStore, requireAuth(environment), requireRole('APPLICANT')];
 
-  router.post('/jobs/:jobId/applications', ...applicantOnly, validate('params', jobApplicationParamsSchema), validate('body', submitApplicationSchema), async (request, response, next) => {
+  router.post('/jobs/:jobId/applications', ...applicantOnly, principalRateLimit(20), validate('params', jobApplicationParamsSchema), validate('body', submitApplicationSchema), async (request, response, next) => {
     try { response.status(201).json({ application: await new ApplicationService(storage, request.log, notifications).submit(request.principal!.id, request.params.jobId as string, request.body as SubmitApplicationInput) }); }
     catch (error) { next(error); }
   });
@@ -24,7 +26,7 @@ export function createApplicationRouter(environment: Environment, notifications:
     try { response.json({ application: await new ApplicationService(storage, request.log, notifications).get(request.principal!.id, request.params.applicationId as string) }); }
     catch (error) { next(error); }
   });
-  router.post('/applicant/applications/:applicationId/withdraw', ...applicantOnly, validate('params', applicationIdParamsSchema), async (request, response, next) => {
+  router.post('/applicant/applications/:applicationId/withdraw', ...applicantOnly, principalRateLimit(30), validate('params', applicationIdParamsSchema), async (request, response, next) => {
     try { response.json({ application: await new ApplicationService(storage, request.log, notifications).withdraw(request.principal!.id, request.params.applicationId as string) }); }
     catch (error) { next(error); }
   });

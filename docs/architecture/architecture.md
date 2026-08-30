@@ -30,6 +30,16 @@ Configuration is validated once and does not expose values in validation errors.
 
 Docker Compose provides web, API, and an internal-only MongoDB with a persistent development volume and health checks. Production runtime stages use non-root users and omit development dependencies from the API runtime. No secrets or `.env` files are baked into images.
 
+## Production security posture
+
+The API applies Helmet, an API-appropriate no-referrer policy, and production-only HSTS. Browser-facing security headers for the separately hosted Vite build remain the responsibility of its HTTPS host or reverse proxy; the API does not impose a speculative frontend CSP. CORS allows only `WEB_ORIGIN` with credentials and never uses wildcard credentialed origins. `TRUST_PROXY_HOPS` defaults to `0`; set it only to the verified number of directly trusted proxies, otherwise forwarded client-IP headers are ignored.
+
+Refresh cookies are host-only, HttpOnly, `SameSite=Lax`, scoped to `/api/v1/auth`, and Secure in production. This supports the intended same-site browser/API deployment; CORS is not a CSRF defense. A future cross-site cookie deployment requires a dedicated CSRF design. Authentication and all authenticated private responses use `Cache-Control: private, no-store`; public Job discovery remains cacheable by default.
+
+In-memory limits bound authentication (20 requests per 15 minutes), security-email requests (5), security-token confirmations (10), resume uploads (10 per authenticated Applicant), public search (120 per 15 minutes), autocomplete (60 per minute), and high-value Job/Application mutations (20–30 per authenticated principal per 15 minutes). These are appropriate for one API instance. Horizontal replicas require an explicitly operated shared limiter or edge/WAF policy; Redis, CAPTCHA, and a WAF are intentionally not introduced here.
+
+Threat mitigations include Argon2id passwords, HS256 JWT verification with issuer/audience/expiry checks, hashed rotating refresh and recovery tokens, ownership-scoped database queries, strict Zod request contracts, escaped search regexes, bounded pagination, private PDF-only resume storage, and redacted structured logs. Resume files are signature-checked PDFs capped at 5 MiB; malware scanning is not implemented and must be added by a future storage/security decision. Persistent audit records are also deferred: existing structured logs retain high-value mutation events with request correlation, while retention, compliance, and operational ownership remain undefined.
+
 ## Authentication foundation
 
 `User` is an account-identity model only, with normalized unique email, Argon2id password hash, role (`APPLICANT` or `EMPLOYER`), `ACTIVE`/`DISABLED` status, and timestamps. No profile data is stored there. Passwords must be 12–128 characters and are never trimmed, normalized, logged, or serialized. Argon2id uses 19 MiB memory, time cost 2, and parallelism 1: a practical baseline for interactive authentication that can be revisited with production capacity data.

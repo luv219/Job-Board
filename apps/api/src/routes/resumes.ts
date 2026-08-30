@@ -7,6 +7,7 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 import { ResumeService, type ResumeRecord } from '../resume/resume-service.js';
 import { createResumeStorageProvider } from '../resume/storage/create-resume-storage-provider.js';
 import { MAX_RESUME_BYTES, RESUME_FIELD_NAME, validateResumeFile } from '../resume/validation.js';
+import { privateNoStore } from '../middleware/security.js';
 
 function metadataResponse(resume: ResumeRecord) {
   return { originalFilename: resume.originalFilename, mimeType: resume.mimeType, sizeBytes: resume.sizeBytes, uploadedAt: resume.uploadedAt.toISOString() };
@@ -39,7 +40,7 @@ function resumeUpload(request: Request, response: Response, next: NextFunction):
 
 export function createResumeRouter(environment: Environment, storage = createResumeStorageProvider(environment)): Router {
   const router = Router();
-  const applicantOnly = [requireAuth(environment), requireRole('APPLICANT')];
+  const applicantOnly = [privateNoStore, requireAuth(environment), requireRole('APPLICANT')];
   const uploadLimit = rateLimit({
     windowMs: 15 * 60 * 1_000,
     limit: 10,

@@ -7,10 +7,12 @@ import { applicationIdParamsSchema, employerApplicationListSchema, employerAppli
 import { createResumeStorageProvider } from '../resume/storage/create-resume-storage-provider.js';
 import type { ResumeStorageProvider } from '../resume/storage/resume-storage-provider.js';
 import type { EmailNotificationService } from '../notifications/email-notification-service.js';
+import { principalRateLimit } from '../middleware/security.js';
+import { privateNoStore } from '../middleware/security.js';
 
 export function createEmployerApplicationRouter(environment: Environment, notifications: EmailNotificationService, storage: ResumeStorageProvider = createResumeStorageProvider(environment)): Router {
   const router = Router();
-  const employerOnly = [requireAuth(environment), requireRole('EMPLOYER')];
+  const employerOnly = [privateNoStore, requireAuth(environment), requireRole('EMPLOYER')];
   router.get('/employer/jobs/:jobId/applications', ...employerOnly, validate('params', jobApplicationParamsSchema), validate('query', employerApplicationListSchema), async (request, response, next) => {
     try { response.json(await new EmployerApplicationService(storage, request.log, notifications).listForJob(request.principal!.id, request.params.jobId as string, response.locals.validatedQuery as ApplicantApplicationListQuery)); }
     catch (error) { next(error); }
@@ -19,7 +21,7 @@ export function createEmployerApplicationRouter(environment: Environment, notifi
     try { response.json({ application: await new EmployerApplicationService(storage, request.log, notifications).get(request.principal!.id, request.params.applicationId as string) }); }
     catch (error) { next(error); }
   });
-  router.patch('/employer/applications/:applicationId/status', ...employerOnly, validate('params', applicationIdParamsSchema), validate('body', employerApplicationStatusSchema), async (request, response, next) => {
+  router.patch('/employer/applications/:applicationId/status', ...employerOnly, principalRateLimit(30), validate('params', applicationIdParamsSchema), validate('body', employerApplicationStatusSchema), async (request, response, next) => {
     try { response.json({ application: await new EmployerApplicationService(storage, request.log, notifications).transition(request.principal!.id, request.params.applicationId as string, (request.body as EmployerApplicationStatusInput).status) }); }
     catch (error) { next(error); }
   });

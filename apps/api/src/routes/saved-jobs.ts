@@ -4,10 +4,11 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 import { validate } from '../validation/validate.js';
 import { SavedJobService } from '../saved-jobs/saved-job-service.js';
 import { emptyBodySchema, jobIdParamsSchema, savedJobListSchema, type SavedJobListQuery } from '../saved-jobs/validation.js';
+import { privateNoStore } from '../middleware/security.js';
 
 export function createSavedJobRouter(environment: Environment): Router {
   const router = Router();
-  const applicantOnly = [requireAuth(environment), requireRole('APPLICANT')];
+  const applicantOnly = [privateNoStore, requireAuth(environment), requireRole('APPLICANT')];
   router.post('/applicant/saved-jobs/:jobId', ...applicantOnly, validate('params', jobIdParamsSchema), validate('body', emptyBodySchema), async (request, response, next) => {
     try {
       const result = await new SavedJobService(request.log).save(request.principal!.id, request.params.jobId as string);

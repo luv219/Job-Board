@@ -13,6 +13,7 @@ import { isValidObjectId } from '../lib/object-id.js';
 import { parseSort } from '../lib/sorting.js';
 import { publicActiveJobFilter } from '../jobs/public-eligibility.js';
 import { autocompletePublicJobs, searchPublicJobs } from '../jobs/search.js';
+import { publicRateLimit, principalRateLimit } from '../middleware/security.js';
 
 function duplicate(error: unknown): boolean { return typeof error === 'object' && error !== null && 'code' in error && error.code === 11000; }
 
@@ -66,7 +67,7 @@ export function createJobRouter(environment: Environment): Router {
   const router = Router();
   const employerOnly = [requireAuth(environment), requireRole('EMPLOYER')];
 
-  router.post('/employer/jobs', ...employerOnly, validate('body', jobCreateSchema), async (request, response, next) => {
+  router.post('/employer/jobs', ...employerOnly, principalRateLimit(30), validate('body', jobCreateSchema), async (request, response, next) => {
     try {
       const company = await findOwnedCompany(request.principal!.id);
       const job = await createWithUniqueSlug(request.body as JobCreateInput, company._id.toString(), request.principal!.id);
@@ -134,17 +135,17 @@ export function createJobRouter(environment: Environment): Router {
     } catch (error) { next(error); }
   };
 
-  router.post('/employer/jobs/:jobId/publish', ...employerOnly, transition('publish'));
-  router.post('/employer/jobs/:jobId/close', ...employerOnly, transition('close'));
-  router.post('/employer/jobs/:jobId/archive', ...employerOnly, transition('archive'));
+  router.post('/employer/jobs/:jobId/publish', ...employerOnly, principalRateLimit(30), transition('publish'));
+  router.post('/employer/jobs/:jobId/close', ...employerOnly, principalRateLimit(30), transition('close'));
+  router.post('/employer/jobs/:jobId/archive', ...employerOnly, principalRateLimit(30), transition('archive'));
 
-  router.get('/jobs', validate('query', publicJobSearchSchema), async (_request, response, next) => {
+  router.get('/jobs', publicRateLimit(120), validate('query', publicJobSearchSchema), async (_request, response, next) => {
     try {
       response.json(await searchPublicJobs(response.locals.validatedQuery as PublicJobSearchQuery, environment));
     } catch (error) { next(error); }
   });
 
-  router.get('/jobs/autocomplete', validate('query', publicJobAutocompleteSchema), async (_request, response, next) => {
+  router.get('/jobs/autocomplete', publicRateLimit(60, 60_000), validate('query', publicJobAutocompleteSchema), async (_request, response, next) => {
     try { response.json(await autocompletePublicJobs(response.locals.validatedQuery as PublicJobAutocompleteQuery)); }
     catch (error) { next(error); }
   });

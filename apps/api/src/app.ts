@@ -21,6 +21,7 @@ import type { ResumeStorageProvider } from './resume/storage/resume-storage-prov
 import type { EmailProvider } from './notifications/email-provider.js';
 import { createEmailProvider } from './notifications/create-email-provider.js';
 import { EmailNotificationService } from './notifications/email-notification-service.js';
+import { privateNoStore } from './middleware/security.js';
 
 interface AppOptions {
   environment: Environment;
@@ -33,17 +34,18 @@ interface AppOptions {
 
 export function createApp({ environment, logger, isDatabaseReady, resumeStorageProvider, emailProvider, configureRoutes }: AppOptions) {
   const app = express();
+  app.set('trust proxy', environment.TRUST_PROXY_HOPS ?? 0);
   const notifications = new EmailNotificationService(emailProvider ?? createEmailProvider(environment, logger), environment, logger);
   app.disable('x-powered-by');
   app.use(requestId);
   app.use(pinoHttp<Request, Response>({ logger, genReqId: (request) => request.id }));
-  app.use(helmet());
+  app.use(helmet({ contentSecurityPolicy: false, strictTransportSecurity: environment.NODE_ENV === 'production' ? { maxAge: 15_552_000 } : false, referrerPolicy: { policy: 'no-referrer' } }));
   app.use(cors({ origin: environment.WEB_ORIGIN, methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], credentials: true }));
   app.use(express.json({ limit: environment.REQUEST_BODY_LIMIT }));
   app.use(express.urlencoded({ extended: false, limit: environment.REQUEST_BODY_LIMIT }));
   app.use(cookieParser());
   app.use('/api/v1/health', createHealthRouter(isDatabaseReady));
-  app.use('/api/v1/auth', createAuthRouter(environment, notifications));
+  app.use('/api/v1/auth', privateNoStore, createAuthRouter(environment, notifications));
   app.use('/api/v1', createProfileRouter(environment));
   app.use('/api/v1', createResumeRouter(environment, resumeStorageProvider));
   app.use('/api/v1', createApplicationRouter(environment, notifications, resumeStorageProvider));

@@ -9,6 +9,7 @@ import { parseSort } from '../src/lib/sorting.js';
 import { assertSafeTestDatabase } from '../src/lib/test-database.js';
 import { createLogger } from '../src/lib/logger.js';
 import { validate } from '../src/validation/validate.js';
+import { publicRateLimit } from '../src/middleware/security.js';
 
 const environment: Environment = {
   NODE_ENV: 'test', API_HOST: '127.0.0.1', API_PORT: 3000,
@@ -70,5 +71,27 @@ describe('configuration and test database safety', () => {
     expect(() => assertSafeTestDatabase('test', 'mongodb://localhost:27017/job_board_test')).not.toThrow();
     expect(() => assertSafeTestDatabase('development', 'mongodb://localhost:27017/job_board_test')).toThrow();
     expect(() => assertSafeTestDatabase('test', 'mongodb://localhost:27017/job_board')).toThrow();
+  });
+});
+
+describe('production security middleware', () => {
+  it('does not trust forged forwarded addresses unless configured for a trusted proxy', async () => {
+    const app = createApp({
+      environment, logger: createLogger(environment), isDatabaseReady: () => true,
+      configureRoutes: (instance) => instance.get('/test/limited', publicRateLimit(2, 60_000), (_request, response) => response.sendStatus(204)),
+    });
+    await request(app).get('/test/limited').set('x-forwarded-for', '198.51.100.1').expect(204);
+    await request(app).get('/test/limited').set('x-forwarded-for', '198.51.100.2').expect(204);
+    const limited = await request(app).get('/test/limited').set('x-forwarded-for', '198.51.100.3').expect(429);
+    expect(limited.body.error.code).toBe('TOO_MANY_REQUESTS');
+    await request(app).get('/api/v1/health/live').expect(200);
+  });
+
+  it('marks authentication responses private and disables HSTS outside production', async () => {
+    const app = createApp({ environment, logger: createLogger(environment), isDatabaseReady: () => true });
+    const response = await request(app).get('/api/v1/auth/not-a-route').expect(404);
+    expect(response.headers['cache-control']).toBe('private, no-store');
+    expect(response.headers['strict-transport-security']).toBeUndefined();
+    expect(response.headers['x-content-type-options']).toBe('nosniff');
   });
 });
