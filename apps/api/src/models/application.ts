@@ -1,7 +1,8 @@
 import { Schema, model, type Types } from 'mongoose';
 
-export const applicationStatuses = ['CREATING', 'SUBMITTED', 'WITHDRAWN'] as const;
+export const applicationStatuses = ['CREATING', 'SUBMITTED', 'UNDER_REVIEW', 'SHORTLISTED', 'INTERVIEW', 'OFFER', 'HIRED', 'REJECTED', 'WITHDRAWN'] as const;
 export type ApplicantVisibleApplicationStatus = Exclude<(typeof applicationStatuses)[number], 'CREATING'>;
+export const applicantVisibleApplicationStatuses: ApplicantVisibleApplicationStatus[] = ['SUBMITTED', 'UNDER_REVIEW', 'SHORTLISTED', 'INTERVIEW', 'OFFER', 'HIRED', 'REJECTED', 'WITHDRAWN'];
 
 export interface ApplicationRecord {
   jobId: Types.ObjectId;
@@ -39,5 +40,6 @@ const schema = new Schema<ApplicationRecord>({
 schema.index({ jobId: 1, applicantUserId: 1 }, { unique: true });
 schema.index({ applicantUserId: 1, appliedAt: -1 });
 schema.index({ applicantUserId: 1, status: 1, appliedAt: -1 });
+schema.index({ companyId: 1, jobId: 1, status: 1, updatedAt: -1 });
 
 export const Application = model<ApplicationRecord>('Application', schema);

@@ -1,6 +1,6 @@
 import type { Logger } from 'pino';
 import type mongoose from 'mongoose';
-import { Application, type ApplicantVisibleApplicationStatus, type ApplicationRecord } from '../models/application.js';
+import { Application, applicantVisibleApplicationStatuses, type ApplicantVisibleApplicationStatus, type ApplicationRecord } from '../models/application.js';
 import { ApplicantProfile } from '../models/applicant-profile.js';
 import { Job } from '../models/job.js';
 import { Company } from '../models/company.js';
@@ -8,6 +8,7 @@ import { publicActiveJobFilter, isJobOpenForApplications } from '../jobs/public-
 import { AppError } from '../lib/app-error.js';
 import type { ApplicantApplicationListQuery, SubmitApplicationInput } from './validation.js';
 import type { ResumeStorageProvider } from '../resume/storage/resume-storage-provider.js';
+import { canApplicantWithdraw } from './lifecycle.js';
 
 type PersistedApplication = ApplicationRecord & { _id: { toString(): string } };
 type JobSummaryRecord = { _id: { toString(): string }; companyId: { toString(): string }; slug: string; title: string; workMode: string; employmentType: string };
@@ -79,7 +80,7 @@ export class ApplicationService {
   }
 
   public async list(applicantUserId: string, query: ApplicantApplicationListQuery) {
-    const visibleStatuses: ApplicantVisibleApplicationStatus[] = ['SUBMITTED', 'WITHDRAWN'];
+    const visibleStatuses = applicantVisibleApplicationStatuses;
     const filter: mongoose.QueryFilter<ApplicationRecord> = {
       applicantUserId,
       status: query.status ? query.status as ApplicantVisibleApplicationStatus : { $in: visibleStatuses },
@@ -93,14 +94,18 @@ export class ApplicationService {
   }
 
   public async get(applicantUserId: string, applicationId: string) {
-    const application = await Application.findOne({ _id: applicationId, applicantUserId, status: { $in: ['SUBMITTED', 'WITHDRAWN'] } }).lean();
+    const application = await Application.findOne({ _id: applicationId, applicantUserId, status: { $in: applicantVisibleApplicationStatuses } }).lean();
     if (!application) throw new AppError({ statusCode: 404, code: 'APPLICATION_NOT_FOUND', message: 'Application not found' });
     return this.withJobSummary(application);
   }
 
   public async withdraw(applicantUserId: string, applicationId: string) {
+    const current = await Application.findOne({ _id: applicationId, applicantUserId, status: { $in: applicantVisibleApplicationStatuses } }).lean();
+    if (!current) throw new AppError({ statusCode: 404, code: 'APPLICATION_NOT_FOUND', message: 'Application not found' });
+    const currentStatus = current.status as ApplicantVisibleApplicationStatus;
+    if (!canApplicantWithdraw(currentStatus)) throw new AppError({ statusCode: 409, code: 'APPLICATION_NOT_WITHDRAWABLE', message: 'Application cannot be withdrawn from its current state' });
     const application = await Application.findOneAndUpdate(
-      { _id: applicationId, applicantUserId, status: 'SUBMITTED' },
+      { _id: applicationId, applicantUserId, status: currentStatus },
       { $set: { status: 'WITHDRAWN', withdrawnAt: new Date() } },
       { returnDocument: 'after' },
     ).lean();
@@ -108,9 +113,9 @@ export class ApplicationService {
       this.logger.info({ event: 'application_withdrawn', applicationId }, 'Application withdrawn');
       return this.withJobSummary(application);
     }
-    const existing = await Application.exists({ _id: applicationId, applicantUserId, status: { $in: ['SUBMITTED', 'WITHDRAWN'] } });
+    const existing = await Application.exists({ _id: applicationId, applicantUserId, status: { $in: applicantVisibleApplicationStatuses } });
     if (!existing) throw new AppError({ statusCode: 404, code: 'APPLICATION_NOT_FOUND', message: 'Application not found' });
-    throw new AppError({ statusCode: 409, code: 'APPLICATION_NOT_WITHDRAWABLE', message: 'Application cannot be withdrawn from its current state' });
+    throw new AppError({ statusCode: 409, code: 'APPLICATION_STATUS_CONFLICT', message: 'Application status changed before withdrawal could be applied' });
   }
 
   private async withJobSummary(application: PersistedApplication) {

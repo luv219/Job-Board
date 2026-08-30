@@ -1,6 +1,6 @@
 # Job Board
 
-A production-oriented TypeScript MERN modular monolith for a niche job board. Phase 7 adds Applicant Job submission, immutable private resume snapshots, and Applicant Application history.
+A production-oriented TypeScript MERN modular monolith for a niche job board. Phase 8 adds Employer Application review, a controlled hiring pipeline, and authorized immutable resume-snapshot access.
 
 ## Architecture
 
@@ -133,9 +133,24 @@ Applicants can submit exactly one Application per eligible Published Job after c
 | `POST` | `/api/v1/jobs/:jobId/applications` | Submit an Application with an optional plain-text cover letter (5,000 characters maximum) |
 | `GET` | `/api/v1/applicant/applications` | List only the authenticated Applicant’s Applications (`status`, `page`, `limit`) |
 | `GET` | `/api/v1/applicant/applications/:applicationId` | Retrieve one owned Application |
-| `POST` | `/api/v1/applicant/applications/:applicationId/withdraw` | Withdraw a `SUBMITTED` Application |
+| `POST` | `/api/v1/applicant/applications/:applicationId/withdraw` | Withdraw an active Application |
 
-Submission accepts only currently public/active Published Jobs. It atomically reserves the unique `(jobId, applicantUserId)` pair before creating a distinct private resume snapshot. Replacing or deleting the Applicant’s current resume cannot alter an existing Application snapshot. The only Applicant-visible lifecycle is `SUBMITTED → WITHDRAWN`; withdrawal retains the Application and its snapshot, and reapplication is intentionally disallowed. Application snapshot download and all Employer review/resume-access routes are deferred.
+Submission accepts only currently public/active Published Jobs. It atomically reserves the unique `(jobId, applicantUserId)` pair before creating a distinct private resume snapshot. Replacing or deleting the Applicant’s current resume cannot alter an existing Application snapshot. Applicants can see all review statuses and may withdraw while the Application is active (`SUBMITTED`, `UNDER_REVIEW`, `SHORTLISTED`, `INTERVIEW`, or `OFFER`); withdrawal retains the Application and snapshot, and reapplication is intentionally disallowed.
+
+## Employer Application review API
+
+An Employer must own a Company, the requested Job must belong to that Company, and every Application must belong to that Job before a review route succeeds. Cross-Company access is deliberately returned as `404`.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/v1/employer/jobs/:jobId/applications` | List an owned Job’s Applications (`status`, `page`, `limit`) with safe candidate summaries |
+| `GET` | `/api/v1/employer/applications/:applicationId` | Read a full authorized Application/candidate review view |
+| `PATCH` | `/api/v1/employer/applications/:applicationId/status` | Move an Application through the explicit hiring pipeline |
+| `POST` | `/api/v1/employer/applications/:applicationId/resume/access` | Generate a five-minute, snapshot-only private download URL |
+
+The Employer-controlled transition map is: `SUBMITTED → UNDER_REVIEW | SHORTLISTED | REJECTED`; `UNDER_REVIEW → SHORTLISTED | REJECTED`; `SHORTLISTED → INTERVIEW | REJECTED`; `INTERVIEW → OFFER | REJECTED`; `OFFER → HIRED | REJECTED`. `HIRED`, `REJECTED`, and `WITHDRAWN` are terminal. Updates use an expected-status conditional database update to prevent lost-transition races.
+
+List responses expose only candidate name, optional headline, location, skills, and safe snapshot metadata. Detail additionally includes the Applicant’s profile content and cover letter, but never User credentials, email, current-resume metadata, provider asset IDs, or raw resume data. Resume access targets only the immutable Application snapshot and sends `Cache-Control: private, no-store`; it remains available to the authorized owning Employer after withdrawal or a terminal decision so the retained hiring record is reviewable.
 
 ## Repository structure
 
@@ -147,8 +162,8 @@ docker/           Application Dockerfiles
 .github/workflows/ CI quality gate
 ```
 
-## Phase 7 status and intentionally deferred work
+## Phase 8 status and intentionally deferred work
 
-Implemented: workspace foundation, API lifecycle separation, strict configuration, MongoDB lifecycle handling, standardized health/error responses, request validation and query-safety primitives, security middleware, request correlation, bounded shutdown/timeouts, Docker health checks, isolated test-database guardrails, password authentication, rotating refresh sessions, RBAC primitives, private profiles/companies, Job discovery, private resume management, and Applicant Job submission/history/withdrawal with private immutable resume snapshots.
+Implemented: workspace foundation, API lifecycle separation, strict configuration, MongoDB lifecycle handling, standardized health/error responses, request validation and query-safety primitives, security middleware, request correlation, bounded shutdown/timeouts, Docker health checks, isolated test-database guardrails, password authentication, rotating refresh sessions, RBAC primitives, private profiles/companies, Job discovery, private resume management, Applicant Job submission/history/withdrawal, and Employer-owned Application review with explicit hiring transitions and snapshot-only resume access.
 
-Deferred: Employer Application review and resume access, saved jobs, resume parsing, email, dashboards, company teams, caching, queues, analytics, payments, advanced Atlas Search capabilities, and all other product features. See [the architecture document](docs/architecture/architecture.md) for operational conventions and scale-up seams.
+Deferred: saved jobs, resume parsing, email, dashboards, company teams, caching, queues, analytics, payments, advanced Atlas Search capabilities, and all other product features. See [the architecture document](docs/architecture/architecture.md) for operational conventions and scale-up seams.

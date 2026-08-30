@@ -50,6 +50,8 @@ export const apiErrorCodeSchema = z.enum([
   'APPLICANT_PROFILE_REQUIRED',
   'RESUME_REQUIRED',
   'RESUME_SNAPSHOT_ERROR',
+  'APPLICATION_INVALID_TRANSITION',
+  'APPLICATION_STATUS_CONFLICT',
 ]);
 
 export const apiErrorResponseSchema = z.object({
@@ -124,7 +126,7 @@ export type WorkMode = z.infer<typeof workModeSchema>;
 export type Salary = z.infer<typeof salarySchema>;
 export type JobPublic = z.infer<typeof jobPublicSchema>;
 
-export const applicationStatusSchema = z.enum(['SUBMITTED', 'WITHDRAWN']);
+export const applicationStatusSchema = z.enum(['SUBMITTED', 'UNDER_REVIEW', 'SHORTLISTED', 'INTERVIEW', 'OFFER', 'HIRED', 'REJECTED', 'WITHDRAWN']);
 export type ApplicationStatus = z.infer<typeof applicationStatusSchema>;
 export const applicationResumeSnapshotSchema = resumeMetadataSchema.extend({ capturedAt: z.string() });
 export const applicantApplicationJobSchema = z.object({
@@ -136,6 +138,24 @@ export const applicantApplicationSchema = z.object({
   coverLetter: z.string().optional(), resumeSnapshot: applicationResumeSnapshotSchema, job: applicantApplicationJobSchema,
 });
 export type ApplicantApplication = z.infer<typeof applicantApplicationSchema>;
+
+export const employerApplicantSummarySchema = z.object({
+  fullName: z.string(), headline: z.string().optional(), location: locationSchema, skills: z.array(z.string()),
+}).nullable();
+export const employerApplicantDetailSchema = employerApplicantSummarySchema.unwrap().extend({
+  bio: z.string().optional(), experience: z.array(z.unknown()), education: z.array(z.unknown()),
+}).nullable();
+export const employerApplicationListItemSchema = z.object({
+  id: z.string(), status: applicationStatusSchema, appliedAt: z.string(), updatedAt: z.string(),
+  applicant: employerApplicantSummarySchema, resumeSnapshot: applicationResumeSnapshotSchema,
+});
+export const employerApplicationDetailSchema = z.object({
+  id: z.string(), status: applicationStatusSchema, appliedAt: z.string(), updatedAt: z.string(), withdrawnAt: z.string().optional(),
+  coverLetter: z.string().optional(), applicant: employerApplicantDetailSchema,
+  job: z.object({ id: z.string(), title: z.string(), slug: z.string() }), resumeSnapshot: applicationResumeSnapshotSchema,
+});
+export type EmployerApplicationListItem = z.infer<typeof employerApplicationListItemSchema>;
+export type EmployerApplicationDetail = z.infer<typeof employerApplicationDetailSchema>;
 
 export const publicJobListItemSchema = z.object({
   id: z.string(), slug: z.string(), title: z.string(), skills: z.array(z.string()), location: locationSchema,
